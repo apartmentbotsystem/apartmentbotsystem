@@ -7,6 +7,7 @@ import { getRateLimiter } from "@/interface/rate-limit"
 import { getPolicy } from "@/interface/rate-limit/policy"
 import { HttpError } from "@/interface/errors/HttpError"
 import { ErrorCodes } from "@/interface/errors/error-codes"
+import { respondError } from "@/interface/http/response"
 
 export function withErrorHandling<C extends object | undefined = object>(
   handler: (req: Request, ctx: C & RequestMeta) => Promise<Response>,
@@ -59,12 +60,8 @@ export function withErrorHandling<C extends object | undefined = object>(
       return res
     } catch (e) {
       if (e instanceof ValidationError) {
-        const payload = { code: e.code, message: e.message }
         const elapsed = Date.now() - start
-        const res = new Response(JSON.stringify(payload), {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        })
+        const res = respondError(req, e.code, e.message, 400)
         res.headers.set("x-request-id", meta.requestId)
         res.headers.set("x-response-time", String(elapsed))
         const invalidWindow = recordInvalidPayload(meta.ip || "unknown")
@@ -85,12 +82,8 @@ export function withErrorHandling<C extends object | undefined = object>(
         return res
       }
       if (e instanceof HttpError) {
-        const payload = { code: e.code, message: e.message }
         const elapsed = Date.now() - start
-        const res = new Response(JSON.stringify(payload), {
-          status: e.status,
-          headers: { "Content-Type": "application/json" },
-        })
+        const res = respondError(req, e.code, e.message, e.status)
         res.headers.set("x-request-id", meta.requestId)
         res.headers.set("x-response-time", String(elapsed))
         logger.error({
@@ -107,12 +100,8 @@ export function withErrorHandling<C extends object | undefined = object>(
         return res
       }
       const mapped = mapDomainError(e as Error)
-      const payload = { code: mapped.code, message: mapped.message }
       const elapsed = Date.now() - start
-      const res = new Response(JSON.stringify(payload), {
-        status: mapped.status,
-        headers: { "Content-Type": "application/json" },
-      })
+      const res = respondError(req, mapped.code, mapped.message, mapped.status)
       res.headers.set("x-request-id", meta.requestId)
       res.headers.set("x-response-time", String(elapsed))
       logger.error({

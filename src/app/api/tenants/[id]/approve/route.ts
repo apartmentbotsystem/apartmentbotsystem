@@ -3,6 +3,7 @@ import { presentTenantDTO } from "@/interface/presenters/tenant.presenter"
 import { withErrorHandling } from "@/interface/http/withErrorHandling"
 import { approveTenantSchema } from "@/interface/validators/tenant.schema"
 import { ValidationError } from "@/interface/errors/ValidationError"
+import { respondOk } from "@/interface/http/response"
 
 export const runtime = "nodejs"
 
@@ -14,5 +15,5 @@ export const POST = withErrorHandling(async (req: Request, context: { params: Pr
   }
   const usecase = getApproveTenantUseCase()
   const result = await usecase.execute(parsed.data.id)
-  return Response.json(presentTenantDTO(result), { status: 200 })
+  return respondOk(req, presentTenantDTO(result), 200)
 })

@@ -3,6 +3,7 @@ import { presentInvoiceDTO } from "@/interface/presenters/invoice.presenter"
 import { withErrorHandling } from "@/interface/http/withErrorHandling"
 import { createInvoiceSchema } from "@/interface/validators/invoice.schema"
 import { ValidationError } from "@/interface/errors/ValidationError"
+import { respondOk } from "@/interface/http/response"
 
 export const POST = withErrorHandling(async (req: Request): Promise<Response> => {
   const body = await req.json()
@@ -17,5 +18,5 @@ export const POST = withErrorHandling(async (req: Request): Promise<Response> =>
     amount: parsed.data.amount,
     month: parsed.data.month,
   })
-  return Response.json(presentInvoiceDTO(result), { status: 201 })
+  return respondOk(req, presentInvoiceDTO(result), 201)
 })

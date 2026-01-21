@@ -3,6 +3,7 @@ import { presentPaymentDTO } from "@/interface/presenters/payment.presenter"
 import { withErrorHandling } from "@/interface/http/withErrorHandling"
 import { recordPaymentSchema } from "@/interface/validators/payment.schema"
 import { ValidationError } from "@/interface/errors/ValidationError"
+import { respondOk } from "@/interface/http/response"
 
 export const runtime = "nodejs"
 
@@ -18,5 +19,5 @@ export const POST = withErrorHandling(async (req: Request): Promise<Response> =>
     method: parsed.data.method,
     reference: parsed.data.reference ?? null,
   })
-  return Response.json(presentPaymentDTO(result), { status: 201 })
+  return respondOk(req, presentPaymentDTO(result), 201)
 })

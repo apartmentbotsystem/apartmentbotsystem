@@ -5,6 +5,8 @@ type BaseLog = {
   method: string
   path: string
   timestamp: string
+  userId?: string
+  role?: string
 }
 
 type InfoLog = BaseLog & {

@@ -15,18 +15,18 @@ export function withErrorHandling<C extends object | undefined = object>(
     // abuse signals (soft)
     const sizeCheck = isBodyTooLarge(req.headers.get("content-length"))
     if (sizeCheck.tooLarge) {
-      logger.warn({ requestId: meta.requestId, method: meta.method, path: meta.path, status: 200 })
+      logger.warn({ requestId: meta.requestId, method: meta.method, path: meta.path, status: 200, userId: meta.userId, role: meta.role })
     }
     const reqWindow = recordRequest(meta.ip || "unknown")
     if (reqWindow.isBurst) {
-      logger.warn({ requestId: meta.requestId, method: meta.method, path: meta.path, status: 200 })
+      logger.warn({ requestId: meta.requestId, method: meta.method, path: meta.path, status: 200, userId: meta.userId, role: meta.role })
     }
     try {
       const res = await handler(req, mergedCtx)
       const elapsed = Date.now() - start
       res.headers.set("x-request-id", meta.requestId)
       res.headers.set("x-response-time", String(elapsed))
-      logger.info({ requestId: meta.requestId, method: meta.method, path: meta.path, status: res.status, latencyMs: elapsed })
+      logger.info({ requestId: meta.requestId, method: meta.method, path: meta.path, status: res.status, latencyMs: elapsed, userId: meta.userId, role: meta.role })
       return res
     } catch (e) {
       if (e instanceof ValidationError) {
@@ -40,7 +40,7 @@ export function withErrorHandling<C extends object | undefined = object>(
         res.headers.set("x-response-time", String(elapsed))
         const invalidWindow = recordInvalidPayload(meta.ip || "unknown")
         if (invalidWindow.isBurst) {
-          logger.warn({ requestId: meta.requestId, method: meta.method, path: meta.path, status: 400 })
+          logger.warn({ requestId: meta.requestId, method: meta.method, path: meta.path, status: 400, userId: meta.userId, role: meta.role })
         }
         logger.error({
           requestId: meta.requestId,
@@ -50,6 +50,8 @@ export function withErrorHandling<C extends object | undefined = object>(
           errorCode: e.code,
           message: e.message,
           stack: (e as Error).stack,
+          userId: meta.userId,
+          role: meta.role,
         })
         return res
       }
@@ -70,6 +72,8 @@ export function withErrorHandling<C extends object | undefined = object>(
           errorCode: e.code,
           message: e.message,
           stack: (e as Error).stack,
+          userId: meta.userId,
+          role: meta.role,
         })
         return res
       }
@@ -90,6 +94,8 @@ export function withErrorHandling<C extends object | undefined = object>(
         errorCode: mapped.code,
         message: mapped.message,
         stack: (e as Error).stack,
+        userId: meta.userId,
+        role: meta.role,
       })
       return res
     }

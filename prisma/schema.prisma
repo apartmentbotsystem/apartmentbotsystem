@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoomStatus {
+  AVAILABLE
+  OCCUPIED
+  MAINTENANCE
+}
+
+model Room {
+  id           String      @id @default(cuid())
+  roomNumber   String
+  status       RoomStatus
+  maxOccupants Int
+
+  tenants      Tenant[]
+  invoices     Invoice[]
+}
+
+model Tenant {
+  id      String  @id @default(cuid())
+  name    String
+  phone   String?
+  role    String
+  roomId  String
+  room    Room    @relation(fields: [roomId], references: [id])
+
+  invoices Invoice[]
+}
+
+model Invoice {
+  id        String @id @default(cuid())
+  roomId    String
+  tenantId  String
+  amount    Int
+  month     String
+
+  room      Room    @relation(fields: [roomId], references: [id])
+  tenant    Tenant  @relation(fields: [tenantId], references: [id])
+  payments  Payment[]
+}
+
+model Payment {
+  id         String   @id @default(cuid())
+  invoiceId  String
+  method     String
+  reference  String?
+  paidAt     DateTime
+
+  invoice    Invoice  @relation(fields: [invoiceId], references: [id])
+}
+

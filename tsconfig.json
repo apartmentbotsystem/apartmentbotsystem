@@ -3,6 +3,7 @@
     "strict": true,
     "moduleResolution": "bundler",
     "module": "esnext",
+    "target": "ES2020",
     "baseUrl": ".",
     "paths": {
       "@/*": [

@@ -13,6 +13,9 @@ type InfoLog = BaseLog & {
   level: LogLevel
   status?: number
   latencyMs?: number
+  limit?: number
+  windowMs?: number
+  remaining?: number
 }
 
 type ErrorLog = BaseLog & {

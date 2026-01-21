@@ -1,9 +1,12 @@
 import { ValidationError } from "@/interface/errors/ValidationError"
-import { HttpError } from "@/interface/errors/HttpError"
 import { mapDomainError } from "@/interface/errors/DomainErrorMapper"
 import { buildRequestMeta, type RequestMeta } from "@/interface/http/request-context"
 import { logger } from "@/interface/logger/logger"
 import { isBodyTooLarge, recordInvalidPayload, recordRequest } from "@/interface/logger/abuse"
+import { getRateLimiter } from "@/interface/rate-limit"
+import { getPolicy } from "@/interface/rate-limit/policy"
+import { HttpError } from "@/interface/errors/HttpError"
+import { ErrorCodes } from "@/interface/errors/error-codes"
 
 export function withErrorHandling<C extends object | undefined = object>(
   handler: (req: Request, ctx: C & RequestMeta) => Promise<Response>,
@@ -12,6 +15,32 @@ export function withErrorHandling<C extends object | undefined = object>(
     const meta = buildRequestMeta(req)
     const mergedCtx = Object.assign({}, (ctx || {}) as object, meta) as C & RequestMeta
     const start = Date.now()
+    const policy = getPolicy(meta.method, meta.path)
+    const identity = meta.userId || meta.ip || "unknown"
+    const routeKey = `${meta.method}:${meta.path}`
+    const limiter = getRateLimiter()
+    const result = limiter.consume(identity, routeKey, policy.windowMs, policy.limit)
+    if (!result.allowed) {
+      const retrySec = Math.max(1, Math.ceil((result.retryAfterMs || policy.windowMs) / 1000))
+      const res = new Response(JSON.stringify({ code: ErrorCodes.RATE_LIMIT_EXCEEDED, message: "Too many requests" }), {
+        status: 429,
+        headers: { "Content-Type": "application/json", "Retry-After": String(retrySec), "X-RateLimit-Remaining": String(result.remaining) },
+      })
+      res.headers.set("x-request-id", meta.requestId)
+      res.headers.set("x-response-time", "0")
+      logger.warn({
+        requestId: meta.requestId,
+        method: meta.method,
+        path: meta.path,
+        status: 429,
+        userId: meta.userId,
+        role: meta.role,
+        limit: policy.limit,
+        windowMs: policy.windowMs,
+        remaining: result.remaining,
+      })
+      return res
+    }
     // abuse signals (soft)
     const sizeCheck = isBodyTooLarge(req.headers.get("content-length"))
     if (sizeCheck.tooLarge) {

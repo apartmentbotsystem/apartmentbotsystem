@@ -5,7 +5,7 @@ export const ErrorCodes = {
   PAYMENT_DUPLICATE: "PAYMENT_DUPLICATE",
   INTERNAL_ERROR: "INTERNAL_ERROR",
   ROOM_NOT_AVAILABLE: "ROOM_NOT_AVAILABLE",
+  RATE_LIMIT_EXCEEDED: "RATE_LIMIT_EXCEEDED",
 } as const
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes]
-

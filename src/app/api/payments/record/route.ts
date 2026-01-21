@@ -1,18 +1,22 @@
 import { getRecordPaymentUseCase } from "@/infrastructure/di/container"
 import { presentPaymentDTO } from "@/interface/presenters/payment.presenter"
+import { withErrorHandling } from "@/interface/http/withErrorHandling"
+import { recordPaymentSchema } from "@/interface/validators/payment.schema"
+import { ValidationError } from "@/interface/errors/ValidationError"
 
 export const runtime = "nodejs"
 
-export async function POST(req: Request): Promise<Response> {
+export const POST = withErrorHandling(async (req: Request): Promise<Response> => {
   const body = await req.json().catch(() => ({}))
-  const invoiceId = String(body.invoiceId)
-  const method = String(body.method)
-  const reference = body.reference ? String(body.reference) : null
-  if (!invoiceId || !method) {
-    return new Response(JSON.stringify({ error: "invoiceId and method required" }), { status: 400 })
+  const parsed = recordPaymentSchema.safeParse(body)
+  if (!parsed.success) {
+    throw new ValidationError("Invalid payment input")
   }
   const usecase = getRecordPaymentUseCase()
-  const result = await usecase.execute({ invoiceId, method, reference })
+  const result = await usecase.execute({
+    invoiceId: parsed.data.invoiceId,
+    method: parsed.data.method,
+    reference: parsed.data.reference ?? null,
+  })
   return Response.json(presentPaymentDTO(result), { status: 201 })
-}
-
+})

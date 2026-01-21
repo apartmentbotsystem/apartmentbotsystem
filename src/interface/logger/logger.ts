@@ -10,6 +10,7 @@ type BaseLog = {
 type InfoLog = BaseLog & {
   level: LogLevel
   status?: number
+  latencyMs?: number
 }
 
 type ErrorLog = BaseLog & {
@@ -57,4 +58,3 @@ export const logger = {
     emit(out, "error")
   },
 }
-

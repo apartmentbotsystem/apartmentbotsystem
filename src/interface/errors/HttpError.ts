@@ -1,10 +1,11 @@
+import type { ErrorCode } from "@/interface/errors/error-codes"
+
 export class HttpError extends Error {
   status: number
-  code: string
-  constructor(status: number, code: string, message: string) {
+  code: ErrorCode
+  constructor(status: number, code: ErrorCode, message: string) {
     super(message)
     this.status = status
     this.code = code
   }
 }
-

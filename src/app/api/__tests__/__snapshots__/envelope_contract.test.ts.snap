@@ -1,0 +1,121 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Invoices POST > envelope error: 400 wraps error > invoices-envelope-error 1`] = `
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid invoice input",
+  },
+  "success": false,
+}
+`;
+
+exports[`Invoices POST > envelope success: wraps DTO > invoices-envelope-success 1`] = `
+{
+  "data": {
+    "amount": 1200,
+    "id": "inv-123",
+    "month": "2026-01",
+    "roomId": "room-1",
+    "tenantId": "tenant-1",
+  },
+  "success": true,
+}
+`;
+
+exports[`Invoices POST > legacy error: 400 with code/message > invoices-legacy-error 1`] = `
+{
+  "code": "VALIDATION_ERROR",
+  "message": "Invalid invoice input",
+}
+`;
+
+exports[`Invoices POST > legacy success: returns DTO and headers > invoices-legacy-success 1`] = `
+{
+  "amount": 1200,
+  "id": "inv-123",
+  "month": "2026-01",
+  "roomId": "room-1",
+  "tenantId": "tenant-1",
+}
+`;
+
+exports[`Payments Record POST > envelope error > payments-envelope-error 1`] = `
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid payment input",
+  },
+  "success": false,
+}
+`;
+
+exports[`Payments Record POST > envelope success > payments-envelope-success 1`] = `
+{
+  "data": {
+    "id": "pay-123",
+    "invoiceId": "inv-123",
+    "method": "CASH",
+    "paidAt": "2026-01-20T12:00:00.000Z",
+    "reference": null,
+  },
+  "success": true,
+}
+`;
+
+exports[`Payments Record POST > legacy error > payments-legacy-error 1`] = `
+{
+  "code": "VALIDATION_ERROR",
+  "message": "Invalid payment input",
+}
+`;
+
+exports[`Payments Record POST > legacy success > payments-legacy-success 1`] = `
+{
+  "id": "pay-123",
+  "invoiceId": "inv-123",
+  "method": "CASH",
+  "paidAt": "2026-01-20T12:00:00.000Z",
+  "reference": null,
+}
+`;
+
+exports[`Tenants Approve POST > envelope error > tenants-envelope-error 1`] = `
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid tenant id",
+  },
+  "success": false,
+}
+`;
+
+exports[`Tenants Approve POST > envelope success > tenants-envelope-success 1`] = `
+{
+  "data": {
+    "id": "tenant-1",
+    "name": "John Doe",
+    "phone": null,
+    "role": "PRIMARY",
+    "roomId": "room-1",
+  },
+  "success": true,
+}
+`;
+
+exports[`Tenants Approve POST > legacy error > tenants-legacy-error 1`] = `
+{
+  "code": "VALIDATION_ERROR",
+  "message": "Invalid tenant id",
+}
+`;
+
+exports[`Tenants Approve POST > legacy success > tenants-legacy-success 1`] = `
+{
+  "id": "tenant-1",
+  "name": "John Doe",
+  "phone": null,
+  "role": "PRIMARY",
+  "roomId": "room-1",
+}
+`;

@@ -24,6 +24,7 @@ export type PaymentFindFilter = {
 
 export type CreatePaymentInput = {
   invoiceId: string
+  amount?: number
   method: string
   reference?: string | null
   paidAt: Date

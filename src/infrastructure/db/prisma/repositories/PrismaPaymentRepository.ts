@@ -36,6 +36,7 @@ export class PrismaPaymentRepository implements PaymentRepository {
     const row = await prisma.payment.create({
       data: {
         invoiceId: input.invoiceId,
+        amount: input.amount ?? 0,
         method: input.method,
         reference: input.reference ?? null,
         paidAt: input.paidAt,
@@ -64,6 +65,7 @@ export class PrismaPaymentRepository implements PaymentRepository {
     const row = await prisma.payment.create({
       data: {
         invoiceId: input.invoiceId,
+        amount: 0,
         method: input.method,
         reference: input.reference ?? null,
         paidAt: new Date(),
@@ -72,4 +74,3 @@ export class PrismaPaymentRepository implements PaymentRepository {
     return this.toDomain({ ...row })
   }
 }
-

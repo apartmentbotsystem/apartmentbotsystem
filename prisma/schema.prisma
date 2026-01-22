@@ -35,24 +35,31 @@ model Tenant {
 }
 
 model Invoice {
-  id        String @id @default(cuid())
-  roomId    String
-  tenantId  String
-  amount    Int
-  month     String
+  id           String   @id @default(cuid())
+  roomId       String
+  tenantId     String
+  periodMonth  String
+  rentAmount   Int
+  waterAmount  Int      @default(0)
+  electricAmount Int    @default(0)
+  totalAmount  Int
+  status       String   @default("UNPAID")
+  issuedAt     DateTime @default(now())
+  dueDate      DateTime
+  paidAt       DateTime?
 
-  room      Room    @relation(fields: [roomId], references: [id])
-  tenant    Tenant  @relation(fields: [tenantId], references: [id])
-  payments  Payment[]
+  room         Room     @relation(fields: [roomId], references: [id])
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  payments     Payment[]
 }
 
 model Payment {
   id         String   @id @default(cuid())
   invoiceId  String
+  amount     Int
   method     String
   reference  String?
   paidAt     DateTime
 
   invoice    Invoice  @relation(fields: [invoiceId], references: [id])
 }
-

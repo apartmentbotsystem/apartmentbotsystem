@@ -5,6 +5,8 @@ import { createInvoiceSchema } from "@/interface/validators/invoice.schema"
 import { ValidationError } from "@/interface/errors/ValidationError"
 import { respondOk } from "@/interface/http/response"
 
+export const runtime = "nodejs"
+
 export const POST = withErrorHandling(async (req: Request): Promise<Response> => {
   const body = await req.json()
   const parsed = createInvoiceSchema.safeParse(body)

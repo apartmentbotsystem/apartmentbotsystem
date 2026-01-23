@@ -6,6 +6,8 @@ import type {
   UpdateRoomPatch,
 } from "@/domain/repositories/RoomRepository"
 import { Room } from "@/domain/entities/Room"
+import { httpError } from "@/interface/errors/HttpError"
+import { ErrorCodes } from "@/interface/errors/error-codes"
 type RoomRow = Awaited<ReturnType<typeof prisma.room.findMany>>[number]
 
 export class PrismaRoomRepository implements RoomRepository {
@@ -52,5 +54,54 @@ export class PrismaRoomRepository implements RoomRepository {
 
   async delete(id: string): Promise<void> {
     await prisma.room.delete({ where: { id } })
+  }
+
+  async startOccupancy(roomId: string): Promise<Room> {
+    const updated = await prisma.$transaction(async (tx) => {
+      const current = await tx.room.findUnique({ where: { id: roomId } })
+      if (!current) {
+        throw httpError(ErrorCodes.VALIDATION_ERROR, "Invalid room id")
+      }
+      if (current.status !== "AVAILABLE") {
+        throw httpError(ErrorCodes.ROOM_NOT_AVAILABLE, "Room not available")
+      }
+      await tx.roomOccupancy.create({
+        data: { roomId, startedAt: new Date(), endedAt: null },
+      })
+      const row = await tx.room.update({
+        where: { id: roomId },
+        data: { status: "OCCUPIED" },
+      })
+      return row
+    })
+    return this.toDomain({ ...updated })
+  }
+
+  async endOccupancy(roomId: string): Promise<Room> {
+    const updated = await prisma.$transaction(async (tx) => {
+      const current = await tx.room.findUnique({ where: { id: roomId } })
+      if (!current) {
+        throw httpError(ErrorCodes.VALIDATION_ERROR, "Invalid room id")
+      }
+      if (current.status !== "OCCUPIED") {
+        throw httpError(ErrorCodes.VALIDATION_ERROR, "Invalid room state")
+      }
+      const last = await tx.roomOccupancy.findFirst({
+        where: { roomId, endedAt: null },
+        orderBy: { startedAt: "desc" },
+      })
+      if (last) {
+        await tx.roomOccupancy.update({
+          where: { id: last.id },
+          data: { endedAt: new Date() },
+        })
+      }
+      const row = await tx.room.update({
+        where: { id: roomId },
+        data: { status: "AVAILABLE" },
+      })
+      return row
+    })
+    return this.toDomain({ ...updated })
   }
 }

@@ -8,6 +8,8 @@ export interface RoomRepository {
   create(input: CreateRoomInput): Promise<Room>
   update(id: string, patch: UpdateRoomPatch): Promise<Room>
   delete(id: string): Promise<void>
+  startOccupancy(roomId: string): Promise<Room>
+  endOccupancy(roomId: string): Promise<Room>
 }
 
 export type RoomFindFilter = {

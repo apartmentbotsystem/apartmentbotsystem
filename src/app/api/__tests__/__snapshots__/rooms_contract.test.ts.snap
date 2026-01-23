@@ -1,0 +1,50 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Rooms GET > envelope success: wraps array of DTO > rooms-envelope-success 1`] = `
+{
+  "data": [
+    {
+      "id": "r-101",
+      "maxOccupants": 2,
+      "number": "101",
+      "status": "AVAILABLE",
+    },
+    {
+      "id": "r-102",
+      "maxOccupants": 3,
+      "number": "102",
+      "status": "OCCUPIED",
+    },
+    {
+      "id": "r-103",
+      "maxOccupants": 1,
+      "number": "103",
+      "status": "MAINTENANCE",
+    },
+  ],
+  "success": true,
+}
+`;
+
+exports[`Rooms GET > legacy success: returns array of DTO > rooms-legacy-success 1`] = `
+[
+  {
+    "id": "r-101",
+    "maxOccupants": 2,
+    "number": "101",
+    "status": "AVAILABLE",
+  },
+  {
+    "id": "r-102",
+    "maxOccupants": 3,
+    "number": "102",
+    "status": "OCCUPIED",
+  },
+  {
+    "id": "r-103",
+    "maxOccupants": 1,
+    "number": "103",
+    "status": "MAINTENANCE",
+  },
+]
+`;

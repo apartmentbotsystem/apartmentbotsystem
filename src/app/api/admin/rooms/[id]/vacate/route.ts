@@ -1,0 +1,23 @@
+import { withErrorHandling } from "@/interface/http/withErrorHandling"
+import { respondOk } from "@/interface/http/response"
+import { requireRole } from "@/lib/guards"
+import { PrismaRoomRepository } from "@/infrastructure/db/prisma/repositories/PrismaRoomRepository"
+import { presentRoomDTO } from "@/interface/presenters/room.presenter"
+import { ValidationError } from "@/interface/errors/ValidationError"
+import type { Room } from "@/domain/entities/Room"
+
+export const runtime = "nodejs"
+
+export const POST = withErrorHandling(
+  async (req: Request, context: { params: Promise<{ id: string }> }): Promise<Response> => {
+    await requireRole(req, ["ADMIN"])
+    const { id } = await context.params
+    if (!id || id.trim().length === 0) {
+      throw new ValidationError("Invalid room id")
+    }
+    const repo = new PrismaRoomRepository()
+    const updated = await repo.endOccupancy(id)
+    const dto = presentRoomDTO(updated as Room)
+    return respondOk(req, dto, 200)
+  },
+)

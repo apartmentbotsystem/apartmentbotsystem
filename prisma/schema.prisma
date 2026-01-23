@@ -21,6 +21,7 @@ model Room {
 
   tenants      Tenant[]
   invoices     Invoice[]
+  occupancies  RoomOccupancy[]
 }
 
 model Tenant {
@@ -81,4 +82,12 @@ model AuditEvent {
   @@index([timestamp])
   @@index([actorType, actorId])
   @@index([targetType, targetId])
+}
+
+model RoomOccupancy {
+  id         String   @id @default(cuid())
+  roomId     String
+  room       Room     @relation(fields: [roomId], references: [id])
+  startedAt  DateTime @default(now())
+  endedAt    DateTime?
 }

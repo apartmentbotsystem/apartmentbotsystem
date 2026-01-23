@@ -3,7 +3,7 @@ import { respondOk } from "@/interface/http/response"
 import { ValidationError } from "@/interface/errors/ValidationError"
 import { httpError } from "@/interface/errors/HttpError"
 import { ErrorCodes } from "@/interface/errors/error-codes"
-import { signSession } from "@/lib/auth.config"
+import { signSession, SESSION_MAX_AGE } from "@/lib/auth.config"
 
 export const runtime = "nodejs"
 
@@ -70,9 +70,14 @@ export const POST = withErrorHandling(async (req: Request): Promise<Response> =>
       return process.env.NODE_ENV === "production"
     }
   })()
-  const maxAge = 60 * 60 * 12
-  const sessionValue = await signSession({ userId, role, iat: Math.floor(Date.now() / 1000) })
-  const cookieSession = serializeCookie("app_session", sessionValue, { maxAge, path: "/", secure: isSecure, httpOnly: true, sameSite: "lax" })
+  const sessionValue = await signSession({ userId, role, iat: Math.floor(Date.now() / 1000), sessionVersion: 1 })
+  const cookieSession = serializeCookie("app_session", sessionValue, {
+    maxAge: SESSION_MAX_AGE,
+    path: "/",
+    secure: isSecure,
+    httpOnly: true,
+    sameSite: "lax",
+  })
 
   const res = respondOk(req, { userId, role }, 200)
   res.headers.append("Set-Cookie", cookieSession)

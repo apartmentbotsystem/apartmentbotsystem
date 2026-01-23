@@ -4,6 +4,7 @@ export type SessionClaims = {
   userId?: string
   role?: Role
   iat?: number
+  sessionVersion?: number
 }
 
 function parseCookies(header: string | null): Record<string, string> {
@@ -25,6 +26,8 @@ function getSecret(): string | null {
   if (!s && process.env.NODE_ENV === "production") return null
   return s || "dev-session-secret"
 }
+
+export const SESSION_MAX_AGE = 60 * 60 * 24 * 7
 
 async function hmac(key: string, data: string): Promise<string> {
   const enc = new TextEncoder()
@@ -53,13 +56,16 @@ function decodePayload(s: string): Record<string, unknown> | null {
   }
 }
 
-export async function signSession(payload: { userId: string; role: Role; iat: number }): Promise<string> {
+export async function signSession(payload: { userId: string; role: Role; iat: number; sessionVersion: number }): Promise<string> {
   const secret = getSecret()
   if (!secret) throw new Error("SESSION_SECRET missing")
   const enc = encodePayload(payload)
   const sig = await hmac(secret, enc)
   return `v1.${enc}.${sig}`
 }
+
+import { httpError } from "@/interface/errors/HttpError"
+import { ErrorCodes } from "@/interface/errors/error-codes"
 
 export async function verifySession(value: string | undefined): Promise<SessionClaims | null> {
   if (!value) return null
@@ -77,8 +83,14 @@ export async function verifySession(value: string | undefined): Promise<SessionC
   const userId = typeof obj["userId"] === "string" ? (obj["userId"] as string) : undefined
   const role = obj["role"] === "ADMIN" || obj["role"] === "STAFF" ? (obj["role"] as Role) : undefined
   const iat = typeof obj["iat"] === "number" ? (obj["iat"] as number) : undefined
+  const sessionVersion = typeof obj["sessionVersion"] === "number" ? (obj["sessionVersion"] as number) : undefined
   if (!userId || !role || !iat) return null
-  return { userId, role, iat }
+  const now = Math.floor(Date.now() / 1000)
+  if (now - iat > SESSION_MAX_AGE) {
+    throw httpError(ErrorCodes.UNAUTHORIZED, "Session expired")
+  }
+  // TODO(F5): compare payload.sessionVersion with server currentSessionVersion
+  return { userId, role, iat, sessionVersion }
 }
 
 export async function auth(req?: Request): Promise<SessionClaims | null> {

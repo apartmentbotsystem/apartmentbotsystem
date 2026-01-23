@@ -104,4 +104,21 @@ export class PrismaRoomRepository implements RoomRepository {
     })
     return this.toDomain({ ...updated })
   }
+
+  async getOccupancyTimeline(roomId: string): Promise<Array<{ id: string; startedAt: Date; endedAt: Date | null }>> {
+    const room = await prisma.room.findUnique({ where: { id: roomId } })
+    if (!room) {
+      throw httpError(ErrorCodes.VALIDATION_ERROR, "Room not found")
+    }
+    const rows = await prisma.roomOccupancy.findMany({
+      where: { roomId },
+      orderBy: { startedAt: "desc" },
+      take: 200,
+    })
+    return rows.map((r) => ({
+      id: r.id,
+      startedAt: r.startedAt,
+      endedAt: r.endedAt ?? null,
+    }))
+  }
 }

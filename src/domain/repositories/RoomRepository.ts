@@ -10,6 +10,7 @@ export interface RoomRepository {
   delete(id: string): Promise<void>
   startOccupancy(roomId: string): Promise<Room>
   endOccupancy(roomId: string): Promise<Room>
+  getOccupancyTimeline(roomId: string): Promise<Array<{ id: string; startedAt: Date; endedAt: Date | null }>>
 }
 
 export type RoomFindFilter = {

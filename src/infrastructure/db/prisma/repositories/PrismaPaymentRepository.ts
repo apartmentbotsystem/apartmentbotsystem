@@ -7,10 +7,10 @@ import type {
   RecordPaymentInput,
 } from "@/domain/repositories/PaymentRepository"
 import { Payment } from "@/domain/entities/Payment"
-import type { Prisma } from "@prisma/client"
+type PaymentRow = Awaited<ReturnType<typeof prisma.payment.findMany>>[number]
 
 export class PrismaPaymentRepository implements PaymentRepository {
-  private toDomain(row: Prisma.PaymentUncheckedCreateInput & { id: string }): Payment {
+  private toDomain(row: PaymentRow): Payment {
     return new Payment(row.id, row.invoiceId, row.method, row.reference ?? null, new Date(row.paidAt))
   }
 
@@ -20,16 +20,17 @@ export class PrismaPaymentRepository implements PaymentRepository {
   }
 
   async findAll(filter?: PaymentFindFilter): Promise<Payment[]> {
-    const where: Prisma.PaymentWhereInput = {}
+    const where: Record<string, unknown> = {}
     if (filter?.invoiceId) where.invoiceId = filter.invoiceId
     if (filter?.method) where.method = filter.method
     if (filter?.paidAfter || filter?.paidBefore) {
-      where.paidAt = {}
-      if (filter.paidAfter) where.paidAt.gte = filter.paidAfter
-      if (filter.paidBefore) where.paidAt.lte = filter.paidBefore
+      const paidRange: Record<string, Date> = {}
+      if (filter.paidAfter) paidRange.gte = filter.paidAfter
+      if (filter.paidBefore) paidRange.lte = filter.paidBefore
+      if (Object.keys(paidRange).length > 0) where.paidAt = paidRange
     }
     const rows = await prisma.payment.findMany({ where, orderBy: { paidAt: "desc" }, take: 200 })
-    return rows.map((r) => this.toDomain({ ...r }))
+    return rows.map((r: PaymentRow) => this.toDomain({ ...r }))
   }
 
   async create(input: CreatePaymentInput): Promise<Payment> {

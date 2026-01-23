@@ -1,13 +1,18 @@
-import { PrismaClient } from "@prisma/client"
+import prismaPkg from "@prisma/client"
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type PrismaClientCtor = new (...args: any[]) => any
+const PrismaClient = (prismaPkg as unknown as { PrismaClient: PrismaClientCtor }).PrismaClient
 
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
+declare global {
+  var prisma: InstanceType<typeof PrismaClient> | undefined
+}
 
 export const prisma =
-  globalForPrisma.prisma ??
+  global.prisma ??
   new PrismaClient({
     log: ["error", "warn"],
   })
 
 if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma
+  global.prisma = prisma
 }

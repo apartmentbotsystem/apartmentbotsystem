@@ -23,6 +23,16 @@ exports[`Invoices POST > envelope success: wraps DTO > invoices-envelope-success
 }
 `;
 
+exports[`Invoices POST > envelope success: wraps DTO > invoices-legacy-success 1`] = `
+{
+  "amount": 1200,
+  "id": "inv-123",
+  "month": "2026-01",
+  "roomId": "room-1",
+  "tenantId": "tenant-1",
+}
+`;
+
 exports[`Invoices POST > legacy error: 400 with code/message > invoices-legacy-error 1`] = `
 {
   "code": "VALIDATION_ERROR",
@@ -63,6 +73,16 @@ exports[`Payments Record POST > envelope success > payments-envelope-success 1`]
 }
 `;
 
+exports[`Payments Record POST > envelope success > payments-legacy-success 1`] = `
+{
+  "id": "pay-123",
+  "invoiceId": "inv-123",
+  "method": "CASH",
+  "paidAt": "2026-01-20T12:00:00.000Z",
+  "reference": null,
+}
+`;
+
 exports[`Payments Record POST > legacy error > payments-legacy-error 1`] = `
 {
   "code": "VALIDATION_ERROR",
@@ -100,6 +120,16 @@ exports[`Tenants Approve POST > envelope success > tenants-envelope-success 1`] 
     "roomId": "room-1",
   },
   "success": true,
+}
+`;
+
+exports[`Tenants Approve POST > envelope success > tenants-legacy-success 1`] = `
+{
+  "id": "tenant-1",
+  "name": "John Doe",
+  "phone": null,
+  "role": "PRIMARY",
+  "roomId": "room-1",
 }
 `;
 

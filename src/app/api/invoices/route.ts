@@ -6,11 +6,12 @@ import { ValidationError } from "@/interface/errors/ValidationError"
 import { respondOk } from "@/interface/http/response"
 import { prisma } from "@/infrastructure/db/prisma/prismaClient"
 import { requireRole } from "@/lib/guards"
+import { emitAuditEvent } from "@/infrastructure/audit/audit.service"
 
 export const runtime = "nodejs"
 
 export const POST = withErrorHandling(async (req: Request): Promise<Response> => {
-  await requireRole(req, ["ADMIN"])
+  const session = await requireRole(req, ["ADMIN"])
   const body = await req.json()
   const parsed = createInvoiceSchema.safeParse(body)
   if (!parsed.success) {
@@ -22,6 +23,15 @@ export const POST = withErrorHandling(async (req: Request): Promise<Response> =>
     tenantId: parsed.data.tenantId,
     amount: parsed.data.amount,
     month: parsed.data.month,
+  })
+  emitAuditEvent({
+    actorType: session.role === "ADMIN" || session.role === "STAFF" ? session.role : "SYSTEM",
+    actorId: session.userId,
+    action: "INVOICE_CREATED",
+    targetType: "INVOICE",
+    targetId: result.id,
+    severity: "INFO",
+    metadata: { roomId: parsed.data.roomId, tenantId: parsed.data.tenantId, amount: parsed.data.amount, month: parsed.data.month },
   })
   return respondOk(req, presentInvoiceDTO(result), 201)
 })
@@ -39,7 +49,8 @@ export const GET = withErrorHandling(async (req: Request): Promise<Response> => 
     orderBy: { issuedAt: "desc" },
     take,
   })
-  const data = rows.map((r) => ({
+  type InvoiceRow = Awaited<ReturnType<typeof prisma.invoice.findMany>>[number]
+  const data = rows.map((r: InvoiceRow) => ({
     id: r.id,
     roomId: r.roomId,
     tenantId: r.tenantId,

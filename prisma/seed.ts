@@ -1,10 +1,8 @@
-import { PrismaClient } from "@prisma/client"
 import bcrypt from "bcryptjs"
-import { FLOOR_ROOM_RULES, type SlashRule, type RangeRule } from "../src/core/project-rules/room.rules"
-import { assertValidRoomNumber } from "../src/core/project-rules/room-guard"
-import { sortRoomNumbers } from "../src/core/project-rules/room-sorter"
-
-const prisma = new PrismaClient()
+import { prisma } from "@/infrastructure/db/prisma/prismaClient"
+import { FLOOR_ROOM_RULES, type SlashRule, type RangeRule } from "@/core/project-rules/room.rules"
+import { allowRoomAccess } from "@/core/project-rules/room-guard"
+import { sortRooms } from "@/core/project-rules/room-sorter"
 
 function generateAllRoomNumbers(): string[] {
   const result: string[] = []
@@ -18,13 +16,13 @@ function generateAllRoomNumbers(): string[] {
       result.push(String(num))
     }
   }
-  return result.sort(sortRoomNumbers)
+  return sortRooms(result)
 }
 
 async function seedRooms() {
   const rooms = generateAllRoomNumbers()
   for (const roomNumber of rooms) {
-    assertValidRoomNumber(roomNumber)
+    allowRoomAccess()
     await prisma.room.upsert({
       where: { roomNumber },
       update: {},

@@ -6,10 +6,10 @@ import type {
   UpdateTenantPatch,
 } from "@/domain/repositories/TenantRepository"
 import { Tenant } from "@/domain/entities/Tenant"
-import type { Prisma } from "@prisma/client"
+type TenantRow = Awaited<ReturnType<typeof prisma.tenant.findMany>>[number]
 
 export class PrismaTenantRepository implements TenantRepository {
-  private toDomain(row: Prisma.TenantUncheckedCreateInput & { id: string }): Tenant {
+  private toDomain(row: TenantRow): Tenant {
     return new Tenant(row.id, row.name, row.phone ?? null, row.role, row.roomId)
   }
 
@@ -19,12 +19,12 @@ export class PrismaTenantRepository implements TenantRepository {
   }
 
   async findAll(filter?: TenantFindFilter): Promise<Tenant[]> {
-    const where: Prisma.TenantWhereInput = {}
+    const where: Record<string, unknown> = {}
     if (filter?.roomId) where.roomId = filter.roomId
     if (filter?.role) where.role = filter.role
     if (filter?.nameContains) where.name = { contains: filter.nameContains }
     const rows = await prisma.tenant.findMany({ where, orderBy: { name: "asc" }, take: 200 })
-    return rows.map((r) => this.toDomain({ ...r }))
+    return rows.map((r: TenantRow) => this.toDomain({ ...r }))
   }
 
   async create(input: CreateTenantInput): Promise<Tenant> {
@@ -59,4 +59,3 @@ export class PrismaTenantRepository implements TenantRepository {
     return this.toDomain({ ...current })
   }
 }
-

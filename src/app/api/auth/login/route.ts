@@ -4,6 +4,7 @@ import { ValidationError } from "@/interface/errors/ValidationError"
 import { httpError } from "@/interface/errors/HttpError"
 import { ErrorCodes } from "@/interface/errors/error-codes"
 import { signSession, SESSION_MAX_AGE } from "@/lib/auth.config"
+import { emitAuditEvent } from "@/infrastructure/audit/audit.service"
 
 export const runtime = "nodejs"
 
@@ -43,6 +44,13 @@ export const POST = withErrorHandling(async (req: Request): Promise<Response> =>
   })
 
   if (!resp.ok) {
+    emitAuditEvent({
+      actorType: "SYSTEM",
+      action: "LOGIN_FAILED",
+      targetType: "AUTH",
+      severity: "WARN",
+      metadata: { email },
+    })
     throw httpError(ErrorCodes.UNAUTHORIZED, "Invalid login")
   }
 
@@ -77,6 +85,16 @@ export const POST = withErrorHandling(async (req: Request): Promise<Response> =>
     secure: isSecure,
     httpOnly: true,
     sameSite: "lax",
+  })
+
+  emitAuditEvent({
+    actorType: role,
+    actorId: userId,
+    action: "LOGIN_SUCCESS",
+    targetType: "AUTH",
+    targetId: userId,
+    severity: "INFO",
+    metadata: { email },
   })
 
   const res = respondOk(req, { userId, role }, 200)

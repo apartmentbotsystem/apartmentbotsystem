@@ -3,6 +3,7 @@ import { respondOk } from "@/interface/http/response"
 import { PrismaPaymentRepository } from "@/infrastructure/db/prisma/repositories/PrismaPaymentRepository"
 import { presentPaymentDTO } from "@/interface/presenters/payment.presenter"
 import { requireRole } from "@/lib/guards"
+import type { Payment } from "@/domain/entities/Payment"
 
 export const runtime = "nodejs"
 
@@ -31,6 +32,6 @@ export const GET = withErrorHandling(async (req: Request): Promise<Response> => 
     if (!Number.isNaN(d.getTime())) filter.paidBefore = d
   }
   const rows = await repo.findAll(filter)
-  const data = rows.map((p) => presentPaymentDTO(p))
+  const data = rows.map((p: Payment) => presentPaymentDTO(p))
   return respondOk(req, data, 200)
 })

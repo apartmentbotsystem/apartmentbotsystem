@@ -6,10 +6,10 @@ import type {
   UpdateRoomPatch,
 } from "@/domain/repositories/RoomRepository"
 import { Room } from "@/domain/entities/Room"
-import type { Prisma } from "@prisma/client"
+type RoomRow = Awaited<ReturnType<typeof prisma.room.findMany>>[number]
 
 export class PrismaRoomRepository implements RoomRepository {
-  private toDomain(row: Prisma.RoomUncheckedCreateInput & { id: string }): Room {
+  private toDomain(row: RoomRow): Room {
     return new Room(row.id, row.roomNumber, row.status, row.maxOccupants)
   }
 
@@ -24,11 +24,11 @@ export class PrismaRoomRepository implements RoomRepository {
   }
 
   async findAll(filter?: RoomFindFilter): Promise<Room[]> {
-    const where: Prisma.RoomWhereInput = {}
+    const where: Record<string, unknown> = {}
     if (filter?.status) where.status = filter.status
     if (filter?.numberContains) where.roomNumber = { contains: filter.numberContains }
     const rows = await prisma.room.findMany({ where, orderBy: { roomNumber: "asc" }, take: 200 })
-    return rows.map((r) => this.toDomain({ ...r }))
+    return rows.map((r: RoomRow) => this.toDomain({ ...r }))
   }
 
   async create(input: CreateRoomInput): Promise<Room> {

@@ -3,6 +3,7 @@ import { respondOk } from "@/interface/http/response"
 import { PrismaTenantRepository } from "@/infrastructure/db/prisma/repositories/PrismaTenantRepository"
 import { presentTenantDTO } from "@/interface/presenters/tenant.presenter"
 import { requireRole } from "@/lib/guards"
+import type { Tenant } from "@/domain/entities/Tenant"
 
 export const runtime = "nodejs"
 
@@ -14,6 +15,6 @@ export const GET = withErrorHandling(async (req: Request): Promise<Response> => 
   const nameContains = url.searchParams.get("name") || undefined
   const repo = new PrismaTenantRepository()
   const rows = await repo.findAll({ roomId, role, nameContains })
-  const data = rows.map((t) => presentTenantDTO(t))
+  const data = rows.map((t: Tenant) => presentTenantDTO(t))
   return respondOk(req, data, 200)
 })

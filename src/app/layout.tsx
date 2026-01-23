@@ -1,7 +1,14 @@
 import "./globals.css"
 import Link from "next/link"
+import { cookies } from "next/headers"
+import { verifySession } from "@/lib/auth.config"
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const store = await cookies()
+  const raw = store.get("app_session")?.value
+  const claims = raw ? await verifySession(raw) : null
+  const roleLabel = claims?.role
+  const canCreate = roleLabel === "ADMIN"
   return (
     <html lang="th">
       <body>
@@ -24,6 +31,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/activity" className="hover:underline">
                 Activity Log
               </Link>
+              <form action="/api/auth/logout" method="post">
+                <button className="rounded bg-slate-700 px-3 py-1 hover:bg-slate-600">Logout</button>
+              </form>
             </nav>
           </aside>
           <main className="flex-1">
@@ -36,11 +46,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     className="border rounded px-2 py-1"
                     aria-label="ค้นหา Invoice ID"
                   />
-                  <Link href="/invoices" className="rounded bg-slate-800 px-3 py-1 text-white">
-                    Create Invoice
-                  </Link>
+                  {canCreate && (
+                    <Link href="/invoices" className="rounded bg-slate-800 px-3 py-1 text-white">
+                      Create Invoice
+                    </Link>
+                  )}
                 </div>
-                <div />
+                <div className="text-sm text-slate-600">{roleLabel ? `Role: ${roleLabel}` : "Guest"}</div>
               </div>
             </div>
             <div className="p-6">{children}</div>

@@ -4,10 +4,12 @@ import { withErrorHandling } from "@/interface/http/withErrorHandling"
 import { recordPaymentSchema } from "@/interface/validators/payment.schema"
 import { ValidationError } from "@/interface/errors/ValidationError"
 import { respondOk } from "@/interface/http/response"
+import { requireRole } from "@/lib/guards"
 
 export const runtime = "nodejs"
 
 export const POST = withErrorHandling(async (req: Request): Promise<Response> => {
+  await requireRole(req, ["ADMIN", "STAFF"])
   const body = await req.json().catch(() => ({}))
   const parsed = recordPaymentSchema.safeParse(body)
   if (!parsed.success) {

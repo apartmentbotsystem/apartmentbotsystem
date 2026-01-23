@@ -10,6 +10,7 @@ export default function TenantsPage() {
   const [error, setError] = useState<string | null>(null)
   const [approving, setApproving] = useState<string | null>(null)
   const [approveError, setApproveError] = useState<string | null>(null)
+  const [role, setRole] = useState<"ADMIN" | "STAFF" | null>(null)
 
   async function fetchEnvelope(url: string, init?: RequestInit) {
     const res = await fetch(url, {
@@ -25,6 +26,8 @@ export default function TenantsPage() {
     setLoading(true)
     setError(null)
     try {
+      const sess = await fetchEnvelope("/api/auth/session")
+      setRole(sess?.role ?? null)
       const data = await fetchEnvelope("/api/tenants")
       setItems(Array.isArray(data) ? data : [])
     } catch (e) {
@@ -87,7 +90,7 @@ export default function TenantsPage() {
                   <td>
                     <button
                       onClick={() => approve(t.id)}
-                      disabled={approving === t.id}
+                      disabled={approving === t.id || role !== "ADMIN"}
                       className="rounded bg-slate-800 px-3 py-1 text-white disabled:opacity-50"
                     >
                       Approve

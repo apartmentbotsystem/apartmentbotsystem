@@ -14,6 +14,7 @@ export default function InvoicesPage() {
   const [month, setMonth] = useState<string>(new Date().toISOString().slice(0, 7))
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  const [role, setRole] = useState<"ADMIN" | "STAFF" | null>(null)
 
   async function fetchEnvelope(url: string, init?: RequestInit) {
     const res = await fetch(url, {
@@ -29,6 +30,8 @@ export default function InvoicesPage() {
     setLoading(true)
     setError(null)
     try {
+      const sess = await fetchEnvelope("/api/auth/session")
+      setRole(sess?.role ?? null)
       const data = await fetchEnvelope("/api/invoices")
       setItems(Array.isArray(data) ? data : [])
     } catch (e) {
@@ -95,11 +98,7 @@ export default function InvoicesPage() {
           <label className="text-sm">Month</label>
           <input value={month} onChange={(e) => setMonth(e.target.value)} className="border rounded px-2 py-1" />
         </div>
-        <button
-          type="submit"
-          disabled={creating}
-          className="rounded bg-slate-800 px-3 py-2 text-white disabled:opacity-50"
-        >
+        <button type="submit" disabled={creating || role !== "ADMIN"} className="rounded bg-slate-800 px-3 py-2 text-white disabled:opacity-50">
           Create Invoice
         </button>
       </form>

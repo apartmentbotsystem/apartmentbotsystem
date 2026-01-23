@@ -1,4 +1,5 @@
 import type { ErrorCode } from "@/interface/errors/error-codes"
+import { ErrorStatus } from "@/interface/errors/error-codes"
 
 export class HttpError extends Error {
   status: number
@@ -8,4 +9,9 @@ export class HttpError extends Error {
     this.status = status
     this.code = code
   }
+}
+
+export function httpError(code: ErrorCode, message: string): HttpError {
+  const status = ErrorStatus[code]
+  return new HttpError(status, code, message)
 }

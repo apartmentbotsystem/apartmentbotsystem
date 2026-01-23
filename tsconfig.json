@@ -15,6 +15,6 @@
     "isolatedModules": true,
     "plugins": [{ "name": "next" }]
   },
-  "include": ["src", ".next/types/**/*.ts", ".next/dev/types/**/*.ts"],
+  "include": ["src", "prisma/**/*.ts", ".next/types/**/*.ts", ".next/dev/types/**/*.ts"],
   "exclude": ["node_modules", ".next"]
 }

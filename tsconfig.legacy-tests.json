@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["legacy-types/*"]
+    }
+  },
+  "include": [
+    "src/app/api/__tests__/rooms*.ts",
+    "src/app/api/__tests__/*rooms*.ts",
+    "legacy-types/**/*.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next"
+  ]
+}

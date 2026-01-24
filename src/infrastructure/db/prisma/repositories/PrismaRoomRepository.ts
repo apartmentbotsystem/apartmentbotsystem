@@ -53,4 +53,92 @@ export class PrismaRoomRepository implements RoomRepository {
   async delete(id: string): Promise<void> {
     await prisma.room.delete({ where: { id } })
   }
+
+  async getRoomsOccupancyTimeline(
+    roomId?: string,
+  ): Promise<
+    Array<{
+      roomId: string
+      tenantId: string | null
+      startDate: Date
+      endDate: Date | null
+      status: "occupied" | "vacant"
+    }>
+  > {
+    const where: Record<string, unknown> = {}
+    if (roomId) where["id"] = roomId
+    const rooms = await prisma.room.findMany({ where, select: { id: true }, take: 500 })
+    type TimelineItem = {
+      roomId: string
+      tenantId: string | null
+      startDate: Date
+      endDate: Date | null
+      status: "occupied" | "vacant"
+    }
+    const out: TimelineItem[] = rooms.map((r: { id: string }): TimelineItem => ({
+      roomId: r.id,
+      tenantId: null,
+      startDate: new Date(0),
+      endDate: null,
+      status: "vacant",
+    }))
+    return out
+  }
+
+  async getAdminMonthlyOccupancyDashboard(
+    month: string,
+  ): Promise<
+    Array<{
+      roomId: string
+      totalOccupiedDays: number
+      occupancyRate: number
+      firstOccupiedAt: Date | null
+      lastVacatedAt: Date | null
+    }>
+  > {
+    const parts = String(month).split("-")
+    if (parts.length !== 2) {
+      return []
+    }
+    const year = Number(parts[0])
+    const monthIndex = Number(parts[1])
+    if (!Number.isFinite(year) || !Number.isFinite(monthIndex) || monthIndex < 1 || monthIndex > 12) {
+      return []
+    }
+    const monthStart = new Date(Date.UTC(year, monthIndex - 1, 1))
+    const monthEnd = new Date(Date.UTC(year, monthIndex, 0))
+    const daysInMonth = Math.floor((monthEnd.getTime() - monthStart.getTime()) / (24 * 60 * 60 * 1000)) + 1
+
+    const rooms = await prisma.room.findMany({ select: { id: true }, orderBy: { roomNumber: "asc" }, take: 1000 })
+    type RoomIdRow = { id: string }
+    const invoices = await prisma.invoice.findMany({
+      where: { periodMonth: month },
+      select: { roomId: true, issuedAt: true },
+      take: 5000,
+    })
+    type InvoiceRow = { roomId: string; issuedAt: Date }
+    const billedRooms = new Map<string, InvoiceRow[]>()
+    invoices.forEach((inv: InvoiceRow) => {
+      const list = billedRooms.get(inv.roomId) ?? []
+      list.push(inv)
+      billedRooms.set(inv.roomId, list)
+    })
+    const results = rooms.map(
+      (r: RoomIdRow): {
+        roomId: string
+        totalOccupiedDays: number
+        occupancyRate: number
+        firstOccupiedAt: Date | null
+        lastVacatedAt: Date | null
+      } => {
+        const hasInvoice = billedRooms.has(r.id)
+        const totalOccupiedDays = hasInvoice ? daysInMonth : 0
+        const occupancyRate = hasInvoice ? 100 : 0
+        const firstOccupiedAt = hasInvoice ? monthStart : null
+        const lastVacatedAt = null
+        return { roomId: r.id, totalOccupiedDays, occupancyRate, firstOccupiedAt, lastVacatedAt }
+      },
+    )
+    return results
+  }
 }

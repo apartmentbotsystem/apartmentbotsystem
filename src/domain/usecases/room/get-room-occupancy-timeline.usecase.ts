@@ -2,14 +2,13 @@ import type { RoomTimelineReader, RoomOccupancyTimelineItem } from "@/domain/int
 
 export type GetRoomOccupancyTimelineInput = {
   roomId: string
-  from: Date
-  to: Date
+  month: string
 }
 
 export class GetRoomOccupancyTimelineUseCase {
   constructor(private readonly reader: RoomTimelineReader) {}
 
   async execute(input: GetRoomOccupancyTimelineInput): Promise<RoomOccupancyTimelineItem[]> {
-    return this.reader.getTimeline(input.roomId, { from: input.from, to: input.to })
+    return this.reader.getRoomTimeline(input.roomId, input.month)
   }
 }

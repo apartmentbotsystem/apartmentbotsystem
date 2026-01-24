@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth.config"
+import { verifySession } from "./lib/auth.config"
 
 export default async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
@@ -9,7 +9,8 @@ export default async function proxy(req: NextRequest) {
   }
   let session = null
   try {
-    session = await auth(req)
+    const cookie = req.cookies.get("app_session")?.value
+    session = await verifySession(cookie)
   } catch {
     const url = req.nextUrl.clone()
     url.pathname = "/login"

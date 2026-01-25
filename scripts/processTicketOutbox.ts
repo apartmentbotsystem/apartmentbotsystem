@@ -26,7 +26,17 @@ async function main() {
     return
   }
   const res = await processTicketOutboxBatch(limit, { sender, outboxRepo: gateway }, runId)
-  console.log("[outbox] info summary", { runId, processed: res.processed, success: res.success, failed: res.failed })
+  const nextAction =
+    res.permanentFailed > 0 ? "inspect payload/config" : res.transientFailed > 0 ? "rerun later" : "none"
+  console.log("[outbox] info summary", {
+    runId,
+    processed: res.processed,
+    success: res.success,
+    failed: res.failed,
+    transientFailed: res.transientFailed,
+    permanentFailed: res.permanentFailed,
+    nextAction,
+  })
 }
 
 main().catch((e) => {

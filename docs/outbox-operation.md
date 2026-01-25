@@ -32,6 +32,11 @@
   - ไม่เรียกส่ง LINE จริง และไม่อัปเดตฐานข้อมูล
 - เมื่อปิด dry-run จะทำงานตามปกติ
 
+## Failure Types
+- TransientError: ปัญหาเครือข่าย/ระบบปลายทางชั่วคราว (เช่น timeout, 5xx, fetch error, 429)
+- PermanentError: ปัญหาคอนฟิกหรือข้อมูล (เช่น token ผิด, 4xx, payload invalid)
+- การจัดประเภทนี้ใช้เพื่อการสื่อสารใน log เท่านั้น ไม่เปลี่ยนพฤติกรรมธุรกิจ
+
 ## ข้อผิดพลาดที่คาดหวัง (Expected Errors)
 - การตั้งค่า LINE access token ไม่ถูกต้อง หรือไม่ตั้งค่า
 - การเชื่อมต่อฐานข้อมูลล้มเหลวชั่วคราว
@@ -49,4 +54,9 @@
 - Start: `[outbox] info start batch { runId, limit }`
 - Dry-run item: `[outbox] info dry-run payload { runId, messageId, ticketId, externalThreadId, text }`
 - Warn failure: `[outbox] warn send failed { runId, outboxId, message }`
-- Summary: `[outbox] info summary { runId, processed, success, failed, mode? }`
+- Summary: `[outbox] info summary { runId, processed, success, failed, transientFailed, permanentFailed, nextAction }`
+
+## Interpreting Summary Log & Actions
+- หาก transientFailed > 0 และ permanentFailed === 0 → nextAction: rerun later
+- หาก permanentFailed > 0 → nextAction: inspect payload/config
+- หาก permanentFailed === processed และ processed > 0 → ระบบแจ้ง error ระดับ batch พร้อม hint ให้หยุด runner และตรวจสอบระบบ

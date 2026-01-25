@@ -14,6 +14,24 @@ export interface TicketOutboxGateway {
   getTicketExternalThreadId(ticketId: string): Promise<string>
 }
 
+function classifyOutboxError(error: unknown): "transient" | "permanent" {
+  const e = error as Record<string, unknown> | null
+  const status = typeof e?.["status"] === "number" ? (e?.["status"] as number) : undefined
+  const code = typeof e?.["code"] === "string" ? (e?.["code"] as string) : undefined
+  const name = typeof e?.["name"] === "string" ? (e?.["name"] as string) : undefined
+  const message = typeof e?.["message"] === "string" ? (e?.["message"] as string).toLowerCase() : ""
+  if (typeof status === "number") {
+    if (status >= 500 || status === 429) return "transient"
+    if (status >= 400 && status < 500) return "permanent"
+  }
+  if (code === "ETIMEDOUT" || code === "ECONNRESET") return "transient"
+  if (code === "LINE_CONFIG_ERROR") return "permanent"
+  if (message.includes("timeout") || message.includes("network") || message.includes("fetch")) return "transient"
+  if (message.includes("token") || message.includes("config") || message.includes("invalid") || message.includes("payload")) return "permanent"
+  if (name && name.toLowerCase().includes("typeerror")) return "transient"
+  return "transient"
+}
+
 export async function processTicketOutbox(
   outboxId: string,
   deps: {
@@ -21,9 +39,9 @@ export async function processTicketOutbox(
     outboxRepo: TicketOutboxGateway
   },
   runId?: string,
-): Promise<void> {
+): Promise<{ status: "SENT" | "FAILED"; failureType?: "transient" | "permanent" }> {
   const rec = await deps.outboxRepo.findById(outboxId)
-  if (!rec || rec.status !== "PENDING") return
+  if (!rec || rec.status !== "PENDING") return { status: "FAILED", failureType: "permanent" }
   const ext = await deps.outboxRepo.getTicketExternalThreadId(rec.ticketId)
   const text = String((rec.payload as Record<string, unknown>)["messageText"] ?? "")
   const payload: TicketOutboxPayload = {
@@ -35,10 +53,17 @@ export async function processTicketOutbox(
   try {
     await deps.sender.send(payload)
     await deps.outboxRepo.markSent(rec.id, new Date())
+    return { status: "SENT" }
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error"
-    console.warn("[outbox] warn send failed", { runId, outboxId: rec.id, message: msg })
+    const errorType = classifyOutboxError(err)
+    if (errorType === "transient") {
+      console.warn("[outbox] warn send failed", { runId, outboxId: rec.id, errorType, actionHint: "safe to retry", message: msg })
+    } else {
+      console.error("[outbox] error send failed", { runId, outboxId: rec.id, errorType, actionHint: "check payload or configuration", message: msg })
+    }
     await deps.outboxRepo.markFailed(rec.id, msg)
+    return { status: "FAILED", failureType: errorType }
   }
 }
 
@@ -53,20 +78,31 @@ export async function processTicketOutboxBatch(
     outboxRepo: OutboxBatchGateway
   },
   runId?: string,
-): Promise<{ processed: number; success: number; failed: number }> {
+): Promise<{ processed: number; success: number; failed: number; transientFailed: number; permanentFailed: number }> {
   const batch = await deps.outboxRepo.findEligibleBatch(limit)
   let processed = 0
   let success = 0
   let failed = 0
+  let transientFailed = 0
+  let permanentFailed = 0
   for (const { id } of batch) {
     try {
-      await processTicketOutbox(id, { sender: deps.sender, outboxRepo: deps.outboxRepo }, runId)
+      const res = await processTicketOutbox(id, { sender: deps.sender, outboxRepo: deps.outboxRepo }, runId)
       processed++
-      success++
+      if (res.status === "SENT") {
+        success++
+      } else {
+        failed++
+        if (res.failureType === "transient") transientFailed++
+        if (res.failureType === "permanent") permanentFailed++
+      }
     } catch {
-      // continue processing other records
       failed++
+      transientFailed++
     }
   }
-  return { processed, success, failed }
+  if (permanentFailed === processed && processed > 0) {
+    console.error("[outbox] error batch", { runId, message: "All outbox items failed permanently", hint: "Stop runner and inspect system" })
+  }
+  return { processed, success, failed, transientFailed, permanentFailed }
 }

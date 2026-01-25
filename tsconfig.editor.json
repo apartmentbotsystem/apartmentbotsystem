@@ -1,8 +1,12 @@
 {
-  "extends": "./tsconfig.json",
+  "extends": "./tsconfig.base.json",
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",
+    "src/app/api/**/__tests__/**/*.ts",
     "scripts/**/*.ts"
-  ]
+  ],
+  "compilerOptions": {
+    "noEmit": true
+  }
 }

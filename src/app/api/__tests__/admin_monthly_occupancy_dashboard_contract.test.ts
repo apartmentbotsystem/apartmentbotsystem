@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import * as route from "@/app/api/admin/dashboard/occupancy-monthly/route"
+import * as route from "@/interface/http/handlers/admin_occupancy_monthly"
 
 vi.mock("@/infrastructure/db/prisma/repositories/PrismaRoomRepository", () => {
   class MockRepo {

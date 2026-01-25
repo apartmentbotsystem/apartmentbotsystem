@@ -3,9 +3,9 @@ import { z } from "zod"
 import { Invoice } from "@/domain/entities/Invoice"
 import { Payment } from "@/domain/entities/Payment"
 import { Tenant } from "@/domain/entities/Tenant"
-import { POST as InvoicesPOST } from "@/app/api/invoices/route"
-import { POST as PaymentsRecordPOST } from "@/app/api/payments/record/route"
-import { POST as TenantsApprovePOST } from "@/app/api/tenants/[id]/approve/route"
+import { POST as InvoicesPOST } from "@/interface/http/handlers/invoices"
+import { POST as PaymentsRecordPOST } from "@/interface/http/handlers/payments_record"
+import { POST as TenantsApprovePOST } from "@/interface/http/handlers/tenants_approve"
 
 vi.mock("@/infrastructure/di/container", () => {
   return {

@@ -1,17 +1,15 @@
 {
-  "extends": "./tsconfig.json",
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "paths": {
-      "@/*": ["legacy-types/*"]
-    }
+    "composite": true,
+    "noEmit": true,
+    "typeRoots": ["./legacy-types", "./node_modules/@types"],
+    "skipLibCheck": true,
+    "types": []
   },
   "include": [
-    "src/app/api/__tests__/rooms*.ts",
-    "src/app/api/__tests__/*rooms*.ts",
-    "legacy-types/**/*.d.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    ".next"
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "legacy-types/**/*.ts"
   ]
 }

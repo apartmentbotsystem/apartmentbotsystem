@@ -65,23 +65,51 @@ export class PrismaRoomRepository implements RoomRepository {
       status: "occupied" | "vacant"
     }>
   > {
-    const where: Record<string, unknown> = {}
-    if (roomId) where["id"] = roomId
-    const rooms = await prisma.room.findMany({ where, select: { id: true }, take: 500 })
-    type TimelineItem = {
+    const rooms = await prisma.room.findMany({
+      where: roomId ? { id: roomId } : undefined,
+      select: { id: true },
+      take: 500,
+    })
+    const out: Array<{
       roomId: string
       tenantId: string | null
       startDate: Date
       endDate: Date | null
       status: "occupied" | "vacant"
+    }> = []
+    for (const r of rooms) {
+      const events = await prisma.occupancyEvent.findMany({
+        where: { roomId: r.id },
+        orderBy: { eventAt: "asc" },
+        take: 5000,
+      })
+      const active = new Set<string>()
+      let lastChange = new Date(0)
+      let currentStatus: "occupied" | "vacant" = "vacant"
+      for (const ev of events) {
+        const prevStatus = currentStatus
+        if (ev.type === "MOVE_IN" && ev.tenantId) active.add(ev.tenantId)
+        else if (ev.type === "MOVE_OUT" && ev.tenantId) active.delete(ev.tenantId)
+        currentStatus = active.size >= 1 ? "occupied" : "vacant"
+        if (currentStatus !== prevStatus) {
+          out.push({
+            roomId: r.id,
+            tenantId: Array.from(active.values())[0] ?? null,
+            startDate: lastChange,
+            endDate: ev.eventAt,
+            status: prevStatus,
+          })
+          lastChange = ev.eventAt
+        }
+      }
+      out.push({
+        roomId: r.id,
+        tenantId: Array.from(active.values())[0] ?? null,
+        startDate: lastChange,
+        endDate: null,
+        status: currentStatus,
+      })
     }
-    const out: TimelineItem[] = rooms.map((r: { id: string }): TimelineItem => ({
-      roomId: r.id,
-      tenantId: null,
-      startDate: new Date(0),
-      endDate: null,
-      status: "vacant",
-    }))
     return out
   }
 

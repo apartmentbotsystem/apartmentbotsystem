@@ -21,6 +21,9 @@ model Room {
 
   tenants      Tenant[]
   invoices     Invoice[]
+  contracts    Contract[]
+  occupancyEvents OccupancyEvent[]
+  tickets      Ticket[]
 }
 
 model Tenant {
@@ -32,12 +35,16 @@ model Tenant {
   room    Room    @relation(fields: [roomId], references: [id])
 
   invoices Invoice[]
+  contracts Contract[]
+  occupancyEvents OccupancyEvent[]
+  tickets   Ticket[]
 }
 
 model Invoice {
   id           String   @id @default(cuid())
   roomId       String
   tenantId     String
+  contractId   String?
   periodMonth  String
   rentAmount   Int
   waterAmount  Int      @default(0)
@@ -47,10 +54,17 @@ model Invoice {
   issuedAt     DateTime @default(now())
   dueDate      DateTime
   paidAt       DateTime?
+  ownerType    OwnerType @default(TENANT)
 
   room         Room     @relation(fields: [roomId], references: [id])
   tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  contract     Contract? @relation(fields: [contractId], references: [id])
   payments     Payment[]
+}
+
+enum OwnerType {
+  TENANT
+  CONTRACT
 }
 
 model Payment {
@@ -62,6 +76,84 @@ model Payment {
   paidAt     DateTime
 
   invoice    Invoice  @relation(fields: [invoiceId], references: [id])
+}
+
+enum OccupancyEventType {
+  MOVE_IN
+  MOVE_OUT
+}
+
+enum OccupancySource {
+  SYSTEM
+  IMPORT
+  BACKFILL
+}
+
+model OccupancyEvent {
+  id        String   @id @default(cuid())
+  roomId    String
+  tenantId  String?
+  type      OccupancyEventType
+  eventAt   DateTime
+  source    OccupancySource
+  createdAt DateTime @default(now())
+
+  room      Room     @relation(fields: [roomId], references: [id])
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id])
+
+  @@index([roomId, eventAt])
+}
+
+enum ContractStatus {
+  DRAFT
+  ACTIVE
+  TERMINATED
+  EXPIRED
+}
+
+model Contract {
+  id        String   @id @default(cuid())
+  tenantId  String
+  roomId    String
+  startDate DateTime
+  endDate   DateTime?
+  rent      Int
+  deposit   Int?
+  status    ContractStatus
+  createdAt DateTime @default(now())
+
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  room     Room   @relation(fields: [roomId], references: [id])
+  invoices Invoice[]
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+}
+
+enum TicketSource {
+  LINE
+}
+
+model Ticket {
+  id                String        @id @default(cuid())
+  source            TicketSource
+  externalThreadId  String
+  tenantId          String?
+  roomId            String?
+  title             String
+  status            TicketStatus
+  createdAt         DateTime      @default(now())
+  closedAt          DateTime?
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+  room   Room?   @relation(fields: [roomId], references: [id])
+
+  messages TicketMessage[]
+  outboxes TicketOutbox[]
+  @@index([externalThreadId])
 }
 
 model AuditEvent {
@@ -77,8 +169,56 @@ model AuditEvent {
 
   severity   String
   metadata   Json?
+  before     Json?
+  after      Json?
 
   @@index([timestamp])
   @@index([actorType, actorId])
   @@index([targetType, targetId])
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageChannel {
+  LINE
+}
+
+model TicketMessage {
+  id           String           @id @default(cuid())
+  ticketId     String
+  direction    MessageDirection
+  channel      MessageChannel
+  messageText  String
+  createdAt    DateTime         @default(now())
+
+  ticket       Ticket           @relation(fields: [ticketId], references: [id])
+
+  @@index([ticketId, createdAt])
+}
+
+enum OutboxStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model TicketOutbox {
+  id         String        @id @default(cuid())
+  ticketId   String
+  channel    MessageChannel
+  payload    Json
+  status     OutboxStatus
+  createdAt  DateTime      @default(now())
+  sentAt     DateTime?
+  errorMessage String?
+  retryCount   Int          @default(0)
+  nextRetryAt  DateTime?
+
+  ticket     Ticket        @relation(fields: [ticketId], references: [id])
+
+  @@index([ticketId, status, createdAt])
+  @@index([status, nextRetryAt])
 }

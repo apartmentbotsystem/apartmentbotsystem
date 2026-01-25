@@ -7,6 +7,8 @@ import type {
   RecordPaymentInput,
 } from "@/domain/repositories/PaymentRepository"
 import { Payment } from "@/domain/entities/Payment"
+import { assertInvoiceTransition } from "@/domain/invoice-status"
+import type { Prisma } from "@prisma/client"
 type PaymentRow = Awaited<ReturnType<typeof prisma.payment.findMany>>[number]
 
 export class PrismaPaymentRepository implements PaymentRepository {
@@ -63,15 +65,30 @@ export class PrismaPaymentRepository implements PaymentRepository {
   }
 
   async record(input: RecordPaymentInput): Promise<Payment> {
-    const row = await prisma.payment.create({
-      data: {
-        invoiceId: input.invoiceId,
-        amount: 0,
-        method: input.method,
-        reference: input.reference ?? null,
-        paidAt: new Date(),
-      },
+    const created = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const invoice = await tx.invoice.findUnique({
+        where: { id: input.invoiceId },
+        select: { id: true, status: true, totalAmount: true },
+      })
+      if (!invoice) throw new Error("Invoice not found")
+      if (invoice.status !== "ISSUED") throw new Error("Invoice not payable")
+      assertInvoiceTransition("ISSUED", "PAID")
+      const paidAt = new Date()
+      await tx.invoice.update({
+        where: { id: input.invoiceId },
+        data: { status: "PAID", paidAt },
+      })
+      const row = await tx.payment.create({
+        data: {
+          invoiceId: input.invoiceId,
+          amount: Number(invoice.totalAmount),
+          method: input.method,
+          reference: input.reference ?? null,
+          paidAt,
+        },
+      })
+      return row
     })
-    return this.toDomain({ ...row })
+    return this.toDomain({ ...created })
   }
 }

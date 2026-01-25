@@ -19,7 +19,7 @@ export class PrismaInvoiceRepository implements InvoiceRepository {
         waterAmount: 0,
         electricAmount: 0,
         totalAmount: input.amount,
-        status: "UNPAID",
+        status: "ISSUED",
         issuedAt: new Date(),
         dueDate,
       },

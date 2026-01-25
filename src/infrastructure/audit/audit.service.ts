@@ -6,10 +6,12 @@ export type AuditEventInput = {
   actorType: "ADMIN" | "STAFF" | "SYSTEM"
   actorId?: string | null
   action: string
-  targetType: "TENANT" | "INVOICE" | "PAYMENT" | "AUTH"
+  targetType: "TENANT" | "INVOICE" | "PAYMENT" | "AUTH" | "CONTRACT" | "TICKET"
   targetId?: string | null
   severity: "INFO" | "WARN" | "CRITICAL"
   metadata?: JsonValue | null
+  before?: JsonValue | null
+  after?: JsonValue | null
 }
 
 export async function emitAuditEvent(input: AuditEventInput): Promise<void> {
@@ -23,6 +25,8 @@ export async function emitAuditEvent(input: AuditEventInput): Promise<void> {
         targetId: input.targetId ?? null,
         severity: input.severity,
         metadata: input.metadata ?? undefined,
+        before: input.before ?? undefined,
+        after: input.after ?? undefined,
       },
     })
   } catch (err) {

@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": true,
+    "typeRoots": ["./legacy-types", "./node_modules/@types"],
+    "skipLibCheck": true,
+    "types": []
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "legacy-types/**/*.ts"
+  ]
+}

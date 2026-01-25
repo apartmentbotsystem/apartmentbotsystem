@@ -36,6 +36,7 @@ export async function processTicketOutbox(
     await deps.outboxRepo.markSent(rec.id, new Date())
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error"
+    console.warn("[outbox] warn send failed", rec.id, msg)
     await deps.outboxRepo.markFailed(rec.id, msg)
   }
 }

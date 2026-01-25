@@ -8,7 +8,10 @@ async function main() {
   }
   const gateway = new TicketOutboxGatewayPrisma()
   const sender = new LineTicketOutboxSender()
-  await processTicketOutboxBatch(10, { sender, outboxRepo: gateway })
+  const limit = 10
+  console.log("[outbox] info start batch", { limit })
+  const res = await processTicketOutboxBatch(limit, { sender, outboxRepo: gateway })
+  console.log("[outbox] info summary", { processed: res.processed })
 }
 
 main().catch((e) => {

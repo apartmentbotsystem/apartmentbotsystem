@@ -3,6 +3,7 @@
     "target": "ES2017",
     "module": "ESNext",
     "lib": ["ES2017", "DOM"],
+    "moduleResolution": "NodeNext",
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]

@@ -6,15 +6,31 @@ async function main() {
   if (process.env.CLI_SKIP_DB === "1") {
     return
   }
+  const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   const gateway = new TicketOutboxGatewayPrisma()
   const sender = new LineTicketOutboxSender()
   const limit = 10
-  console.log("[outbox] info start batch", { limit })
-  const res = await processTicketOutboxBatch(limit, { sender, outboxRepo: gateway })
-  console.log("[outbox] info summary", { processed: res.processed })
+  console.log("[outbox] info start batch", { runId, limit })
+  if (process.env.OUTBOX_DRY_RUN === "1") {
+    const batch = await gateway.findEligibleBatch(limit)
+    let processed = 0
+    for (const { id } of batch) {
+      const rec = await gateway.findById(id)
+      if (!rec || rec.status !== "PENDING") continue
+      const ext = await gateway.getTicketExternalThreadId(rec.ticketId)
+      const text = String((rec.payload as Record<string, unknown>)["messageText"] ?? "")
+      console.log("[outbox] info dry-run payload", { runId, messageId: rec.id, ticketId: rec.ticketId, externalThreadId: ext, text })
+      processed++
+    }
+    console.log("[outbox] info summary", { runId, processed, success: 0, failed: 0, mode: "dry-run" })
+    return
+  }
+  const res = await processTicketOutboxBatch(limit, { sender, outboxRepo: gateway }, runId)
+  console.log("[outbox] info summary", { runId, processed: res.processed, success: res.success, failed: res.failed })
 }
 
 main().catch((e) => {
-  console.error("[outbox] fatal", e)
+  const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  console.error("[outbox] error fatal", { runId, error: String(e instanceof Error ? e.message : e) })
   process.exitCode = 1
 })

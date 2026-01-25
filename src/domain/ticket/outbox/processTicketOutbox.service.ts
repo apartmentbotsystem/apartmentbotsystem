@@ -20,6 +20,7 @@ export async function processTicketOutbox(
     sender: TicketOutboxSender
     outboxRepo: TicketOutboxGateway
   },
+  runId?: string,
 ): Promise<void> {
   const rec = await deps.outboxRepo.findById(outboxId)
   if (!rec || rec.status !== "PENDING") return
@@ -36,7 +37,7 @@ export async function processTicketOutbox(
     await deps.outboxRepo.markSent(rec.id, new Date())
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error"
-    console.warn("[outbox] warn send failed", rec.id, msg)
+    console.warn("[outbox] warn send failed", { runId, outboxId: rec.id, message: msg })
     await deps.outboxRepo.markFailed(rec.id, msg)
   }
 }
@@ -51,16 +52,21 @@ export async function processTicketOutboxBatch(
     sender: TicketOutboxSender
     outboxRepo: OutboxBatchGateway
   },
-): Promise<{ processed: number }> {
+  runId?: string,
+): Promise<{ processed: number; success: number; failed: number }> {
   const batch = await deps.outboxRepo.findEligibleBatch(limit)
   let processed = 0
+  let success = 0
+  let failed = 0
   for (const { id } of batch) {
     try {
-      await processTicketOutbox(id, { sender: deps.sender, outboxRepo: deps.outboxRepo })
+      await processTicketOutbox(id, { sender: deps.sender, outboxRepo: deps.outboxRepo }, runId)
       processed++
+      success++
     } catch {
       // continue processing other records
+      failed++
     }
   }
-  return { processed }
+  return { processed, success, failed }
 }

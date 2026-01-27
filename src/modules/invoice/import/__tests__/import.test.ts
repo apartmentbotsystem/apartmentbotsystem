@@ -2,9 +2,10 @@ import { describe, it, expect, vi } from "vitest"
 import { importInvoicesFromExcel } from "../excel-invoice.importer"
 import type { ImporterDeps } from "../excel-invoice.importer"
 import type { ImportInvoiceRowDTO } from "../excel-invoice.types"
+import type { InvoiceStatus } from "@/domain/invoice-status"
 
 describe("Excel Importer - Real Execution", () => {
-  it("imports mixed rows, ISSUED transition valid, invalid rows fail, idempotent", async () => {
+  it("imports mixed rows, SENT transition valid, invalid rows fail, idempotent", async () => {
     const rows: ImportInvoiceRowDTO[] = [
       {
         rowNumber: 2,
@@ -14,7 +15,7 @@ describe("Excel Importer - Real Execution", () => {
         amount: 1200,
         issueDate: "2025-01-05",
         dueDate: "2025-01-31",
-        status: "ISSUED",
+        status: "SENT",
       },
       {
         rowNumber: 3,
@@ -46,8 +47,8 @@ describe("Excel Importer - Real Execution", () => {
         createdIds.push(id)
         return { id }
       }),
-      transitionStatus: vi.fn(async (id: string, to: "ISSUED" | "DRAFT" | "PAID" | "CANCELLED") => {
-        if (to !== "ISSUED" && to !== "DRAFT") throw new Error("Invalid transition target in test")
+      transitionStatus: vi.fn(async (id: string, to: InvoiceStatus) => {
+        if (to !== "SENT" && to !== "DRAFT") throw new Error("Invalid transition target in test")
       }),
     }
 

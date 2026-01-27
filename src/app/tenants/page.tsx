@@ -11,6 +11,8 @@ export default function TenantsPage() {
   const [approving, setApproving] = useState<string | null>(null)
   const [approveError, setApproveError] = useState<string | null>(null)
   const [role, setRole] = useState<"ADMIN" | "STAFF" | null>(null)
+  const [vacating, setVacating] = useState<string | null>(null)
+  const [vacateError, setVacateError] = useState<string | null>(null)
 
   async function fetchEnvelope(url: string, init?: RequestInit) {
     const res = await fetch(url, {
@@ -56,6 +58,21 @@ export default function TenantsPage() {
     }
   }
 
+  async function vacate(id: string) {
+    if (!window.confirm("ยืนยันการย้ายออกหรือไม่?")) return
+    setVacating(id)
+    setVacateError(null)
+    try {
+      await fetchEnvelope(`/api/admin/tenants/${id}/vacate`, { method: "POST" })
+      setItems((prev) => prev.map((t) => (t.id === id ? { ...t, roomId: "" } : t)))
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setVacateError(msg)
+    } finally {
+      setVacating(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -65,6 +82,7 @@ export default function TenantsPage() {
         </button>
       </div>
       {approveError && <div className="text-red-600">Error: {approveError}</div>}
+      {vacateError && <div className="text-red-600">Error: {vacateError}</div>}
       <div className="border rounded p-4 bg-white">
         {loading && <div>Loading...</div>}
         {!loading && error && <div className="text-red-600">Error: {error}</div>}
@@ -87,13 +105,20 @@ export default function TenantsPage() {
                   <td>{t.phone ?? "-"}</td>
                   <td>{t.role}</td>
                   <td>{t.roomId}</td>
-                  <td>
+                  <td className="space-x-2">
                     <button
                       onClick={() => approve(t.id)}
                       disabled={approving === t.id || role !== "ADMIN"}
                       className="rounded bg-slate-800 px-3 py-1 text-white disabled:opacity-50"
                     >
                       Approve
+                    </button>
+                    <button
+                      onClick={() => vacate(t.id)}
+                      disabled={vacating === t.id || role !== "ADMIN"}
+                      className="rounded bg-yellow-600 px-3 py-1 text-white disabled:opacity-50"
+                    >
+                      Vacate
                     </button>
                   </td>
                 </tr>

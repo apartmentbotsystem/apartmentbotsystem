@@ -14,7 +14,7 @@ describe("Excel Importer - Dry Run", () => {
         amount: 1200,
         issueDate: "2025-01-05",
         dueDate: "2025-01-31",
-        status: "ISSUED",
+        status: "SENT",
       },
     ]
 

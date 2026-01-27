@@ -71,8 +71,9 @@ export class PrismaPaymentRepository implements PaymentRepository {
         select: { id: true, status: true, totalAmount: true },
       })
       if (!invoice) throw new Error("Invoice not found")
-      if (invoice.status !== "ISSUED") throw new Error("Invoice not payable")
-      assertInvoiceTransition("ISSUED", "PAID")
+      const status = String(invoice.status)
+      if (status !== "SENT") throw new Error("Invoice not payable")
+      assertInvoiceTransition("SENT", "PAID")
       const paidAt = new Date()
       await tx.invoice.update({
         where: { id: input.invoiceId },

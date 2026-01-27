@@ -1,6 +1,7 @@
 import type { ImportInvoiceRowDTO } from "./excel-invoice.types"
 import type { ImportResult } from "./excel-invoice.result"
 import { assertInvoiceTransition } from "@/domain/invoice-status"
+import type { InvoiceStatus } from "@/domain/invoice-status"
 
 export type ImporterDeps = {
   roomRepo: { findByNumber(number: string): Promise<{ id: string } | null> }
@@ -9,7 +10,7 @@ export type ImporterDeps = {
   }
   invoiceRepo: {
     createDraft(input: { roomId: string; tenantId: string; amount: number; month: string }): Promise<{ id: string }>
-    transitionStatus(id: string, to: "ISSUED" | "DRAFT" | "PAID" | "CANCELLED"): Promise<void>
+    transitionStatus(id: string, to: InvoiceStatus): Promise<void>
     exists(input: { roomId: string; tenantId: string; month: string }): Promise<boolean>
   }
 }
@@ -63,8 +64,8 @@ export async function importInvoicesFromExcel(
         amount: r.amount,
         month,
       })
-      if (r.status === "ISSUED") {
-        await deps.invoiceRepo.transitionStatus(created.id, "ISSUED")
+      if (r.status === "SENT") {
+        await deps.invoiceRepo.transitionStatus(created.id, "SENT")
       } else {
         assertInvoiceTransition("DRAFT", "DRAFT")
       }

@@ -1,100 +1,94 @@
 'use client'
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
-type Activity = { id: string; createdAt: string; action: string; entityType: string; entityId: string }
+type Role = 'ADMIN' | 'STAFF' | null
+type AuditItem = {
+  id: string
+  action: string
+  adminId: string
+  tenantRegistrationId: string
+  tenantId: string | null
+  lineUserId: string | null
+  createdAt: string
+}
+
+async function fetchAny<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, {
+    ...init,
+    headers: { ...(init?.headers || {}), accept: 'application/vnd.apartment.v1.1+json' },
+    cache: 'no-store',
+  })
+  const json = await res.json().catch(() => null)
+  if (json && typeof json === 'object' && 'success' in json) {
+    if (json.success) return json.data as T
+    const message = (json.error && json.error.message) || 'Error'
+    throw new Error(String(message))
+  }
+  return json as T
+}
 
 export default function ActivityPage() {
-  const [items, setItems] = useState<Activity[]>([])
+  const [role, setRole] = useState<Role>(null)
+  const [items, setItems] = useState<AuditItem[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [before, setBefore] = useState<string | null>(null)
-  const [loadingMore, setLoadingMore] = useState(false)
 
-  async function fetchEnvelope(url: string, init?: RequestInit) {
-    const res = await fetch(url, {
-      ...init,
-      headers: { ...(init?.headers || {}), accept: "application/vnd.apartment.v1.1+json" },
-    })
-    const json = await res.json()
-    if (json.success) return json.data
-    throw new Error(json.error?.message || "Error")
-  }
+  const canView = useMemo(() => role === 'ADMIN', [role])
 
-  const load = useCallback(async (initial = false) => {
-    if (initial) {
-      setLoading(true)
-      setError(null)
-    }
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(null)
     try {
-      const qs = before ? `?limit=50&before=${encodeURIComponent(before)}` : "?limit=50"
-      const data = await fetchEnvelope(`/api/activity${qs}`)
-      const list = Array.isArray(data) ? data : []
-      setItems((prev) => (initial ? list : [...prev, ...list]))
-      if (list.length > 0) setBefore(list[list.length - 1].createdAt)
+      const sess = await fetchAny<{ userId: string | null; role: 'ADMIN' | 'STAFF' | null }>('/api/auth/session')
+      setRole(sess?.role ?? null)
+      const data = await fetchAny<AuditItem[]>('/api/admin/audit-logs?limit=50')
+      setItems(Array.isArray(data) ? data : [])
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       setError(msg)
+      setItems([])
     } finally {
-      if (initial) setLoading(false)
+      setLoading(false)
     }
-  }, [before])
+  }, [])
 
   useEffect(() => {
-    load(true)
+    load()
   }, [load])
 
-  async function loadMore() {
-    setLoadingMore(true)
-    await load(false).finally(() => setLoadingMore(false))
+  if (!canView) {
+    return <div className="p-4 text-red-600">ต้องเป็น Admin เท่านั้น</div>
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="font-semibold">Activity Log</h2>
-        <button onClick={() => load(true)} className="rounded bg-slate-200 px-3 py-1">
-          Reload
-        </button>
-      </div>
-      <div className="border rounded p-4 bg-white">
-        {loading && <div>Loading...</div>}
-        {!loading && error && <div className="text-red-600">Error: {error}</div>}
-        {!loading && !error && items.length === 0 && <div className="text-slate-500">ไม่มีข้อมูล</div>}
-        {!loading && !error && items.length > 0 && (
-          <>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left">
-                  <th>Time</th>
-                  <th>Action</th>
-                  <th>Entity</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((a) => (
-                  <tr key={a.id} className="border-t">
-                    <td>{a.createdAt}</td>
-                    <td>{a.action}</td>
-                    <td>
-                      {a.entityType}:{a.entityId}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="mt-3">
-              <button
-                onClick={loadMore}
-                disabled={loadingMore}
-                className="rounded bg-slate-800 px-3 py-1 text-white disabled:opacity-50"
-              >
-                Load More
-              </button>
-            </div>
-          </>
-        )}
-      </div>
+    <div className="p-4 space-y-4">
+      <h2 className="font-semibold text-lg">Activity Feed</h2>
+      {error ? <div className="text-red-600">{error}</div> : null}
+      {loading ? <div>กำลังโหลด...</div> : null}
+      {items.length === 0 && !loading ? <div>ไม่มีข้อมูล</div> : null}
+      <table className="w-full border border-slate-300">
+        <thead className="bg-slate-100">
+          <tr>
+            <th className="text-left p-2 border-b">เวลา</th>
+            <th className="text-left p-2 border-b">แอดมิน</th>
+            <th className="text-left p-2 border-b">Action</th>
+            <th className="text-left p-2 border-b">LINE User ID</th>
+            <th className="text-left p-2 border-b">Tenant/Room</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((it) => (
+            <tr key={it.id} className="border-b">
+              <td className="p-2">{new Date(it.createdAt).toLocaleString()}</td>
+              <td className="p-2">{it.adminId}</td>
+              <td className="p-2">{it.action === 'TENANT_REGISTRATION_APPROVE' ? 'Approve' : it.action === 'TENANT_REGISTRATION_REJECT' ? 'Reject' : it.action}</td>
+              <td className="p-2">{it.lineUserId || '-'}</td>
+              <td className="p-2">{it.tenantId || '-'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }

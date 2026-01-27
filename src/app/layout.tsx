@@ -2,13 +2,15 @@ import "./globals.css"
 import Link from "next/link"
 import { cookies } from "next/headers"
 import { verifySession } from "@/lib/auth.config"
+import type { Capability } from "@/lib/capabilities"
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const store = await cookies()
   const raw = store.get("app_session")?.value
   const claims = raw ? await verifySession(raw) : null
   const roleLabel = claims?.role
-  const canCreate = roleLabel === "ADMIN"
+  const caps: Capability[] = Array.isArray(claims?.capabilities) ? (claims!.capabilities as Capability[]) : []
+  const canCreate = caps.includes("INVOICE_CREATE")
   return (
     <html lang="th">
       <body>

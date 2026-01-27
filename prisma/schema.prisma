@@ -19,25 +19,33 @@ model Room {
   status       RoomStatus
   maxOccupants Int
 
-  tenants      Tenant[]
+  tenantId     String?     @unique
+  tenant       Tenant?     @relation("RoomTenant", fields: [tenantId], references: [id])
+  tenants      Tenant[]    @relation("TenantRoom")
   invoices     Invoice[]
   contracts    Contract[]
   occupancyEvents OccupancyEvent[]
   tickets      Ticket[]
+  registrations TenantRegistration[]
 }
 
 model Tenant {
   id      String  @id @default(cuid())
   name    String
   phone   String?
+  lineUserId String? @unique
   role    String
-  roomId  String
-  room    Room    @relation(fields: [roomId], references: [id])
+  roomId  String?
+  room    Room?   @relation("TenantRoom", fields: [roomId], references: [id])
+  assignedRoom Room? @relation("RoomTenant")
 
   invoices Invoice[]
   contracts Contract[]
   occupancyEvents OccupancyEvent[]
   tickets   Ticket[]
+  registrations TenantRegistration[]
+
+  @@unique([roomId])
 }
 
 model Invoice {
@@ -50,10 +58,12 @@ model Invoice {
   waterAmount  Int      @default(0)
   electricAmount Int    @default(0)
   totalAmount  Int
-  status       InvoiceStatus @default(ISSUED)
+  status       InvoiceStatus @default(DRAFT)
   issuedAt     DateTime @default(now())
+  sentAt       DateTime?
   dueDate      DateTime
   paidAt       DateTime?
+  paymentNote  String?
   ownerType    OwnerType @default(TENANT)
 
   room         Room     @relation(fields: [roomId], references: [id])
@@ -69,7 +79,7 @@ enum OwnerType {
 
 enum InvoiceStatus {
   DRAFT
-  ISSUED
+  SENT
   PAID
   CANCELLED
 }
@@ -109,6 +119,28 @@ model OccupancyEvent {
   tenant    Tenant?  @relation(fields: [tenantId], references: [id])
 
   @@index([roomId, eventAt])
+}
+
+enum TenantRegistrationStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+}
+
+model TenantRegistration {
+  id          String                   @id @default(cuid())
+  lineUserId  String
+  roomId      String?
+  status      TenantRegistrationStatus  @default(PENDING)
+  createdAt   DateTime                  @default(now())
+  approvedAt  DateTime?
+  approvedBy  String?
+  tenantId    String?
+
+  room    Room?    @relation(fields: [roomId], references: [id])
+  tenant  Tenant?  @relation(fields: [tenantId], references: [id])
+
+  @@unique([lineUserId])
 }
 
 enum ContractStatus {
@@ -228,4 +260,35 @@ model TicketOutbox {
 
   @@index([ticketId, status, createdAt])
   @@index([status, nextRetryAt])
+}
+
+enum AdminAuditAction {
+  TENANT_REGISTRATION_APPROVE
+  TENANT_REGISTRATION_REJECT
+  TENANT_ASSIGN_ROOM
+  TENANT_VACATE
+  BILLING_GENERATE
+  INVOICE_SENT
+  INVOICE_PAID
+}
+
+model AdminAuditLog {
+  id                    String            @id @default(cuid())
+  action                AdminAuditAction
+  adminId               String
+  tenantRegistrationId  String
+  tenantId              String?
+  lineUserId            String?
+  createdAt             DateTime          @default(now())
+}
+
+model IdempotencyKey {
+  id               String   @id @default(cuid())
+  key              String
+  endpoint         String
+  requestHash      String
+  responseSnapshot Json
+  createdAt        DateTime @default(now())
+
+  @@unique([key, endpoint])
 }

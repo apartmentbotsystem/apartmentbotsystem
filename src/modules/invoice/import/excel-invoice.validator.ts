@@ -9,7 +9,7 @@ const schema = z.object({
   amount: z.coerce.number().finite().positive(),
   issueDate: z.coerce.date(),
   dueDate: z.coerce.date(),
-  status: z.enum(["DRAFT", "ISSUED"]),
+  status: z.enum(["DRAFT", "SENT"]),
 })
 
 export function validateExcelInvoiceRows(rows: RawInvoiceRow[]): ValidationResult {

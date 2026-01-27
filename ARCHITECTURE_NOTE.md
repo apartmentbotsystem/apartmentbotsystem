@@ -13,3 +13,9 @@
 ## Future Work (ยังไม่ทำ)
 - RoomTimelineReader: reader ที่ผูกกับแหล่งข้อมูลจริงสำหรับ timeline
 - RoomMonthlyAggregator: การรวมข้อมูลรายเดือนอย่างเป็นทางการแทนการอ้างอิงจาก invoice โดยตรง
+
+## Known Editor Issue
+- บาง editor/TS Server อาจแสดง false-positive: `Cannot find module '@/app/api/.../route'`
+- เป็นปัญหา cache/การ resolve ของ TS Server กับ ESM + path alias + NodeNext
+- แก้โดย Restart TS Server หรือ Reload Window; กรณีดื้อให้ลบ `.next` และ `node_modules/.cache` แล้วเปิดใหม่
+- ไม่ใช่ defect ของโค้ดหรือคอนฟิก: tsc (`--noEmit`) และ vitest ผ่านครบ

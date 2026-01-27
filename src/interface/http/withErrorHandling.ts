@@ -59,9 +59,10 @@ export function withErrorHandling<C extends object | undefined = object>(
       logger.info({ requestId: meta.requestId, method: meta.method, path: meta.path, status: res.status, latencyMs: elapsed, userId: meta.userId, role: meta.role })
       return res
     } catch (e) {
-      if (e instanceof ValidationError) {
+      if (e instanceof ValidationError || (e as Error)?.name === "ValidationError") {
         const elapsed = Date.now() - start
-        const res = respondError(req, e.code, e.message, 400)
+        const code = (e as unknown as { code?: string })?.code || ErrorCodes.VALIDATION_ERROR
+        const res = respondError(req, code, (e as Error).message, 400)
         res.headers.set("x-request-id", meta.requestId)
         res.headers.set("x-response-time", String(elapsed))
         const invalidWindow = recordInvalidPayload(meta.ip || "unknown")
@@ -73,8 +74,8 @@ export function withErrorHandling<C extends object | undefined = object>(
           method: meta.method,
           path: meta.path,
           status: 400,
-          errorCode: e.code,
-          message: e.message,
+          errorCode: code,
+          message: (e as Error).message,
           stack: (e as Error).stack,
           userId: meta.userId,
           role: meta.role,

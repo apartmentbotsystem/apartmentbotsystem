@@ -1,0 +1,20 @@
+export type Capability =
+  | "INVOICE_READ"
+  | "INVOICE_CREATE"
+  | "PAYMENT_READ"
+  | "PAYMENT_CONFIRM"
+  | "TENANT_READ"
+  | "TICKET_READ"
+  | "TENANT_APPROVE"
+
+export const ADMIN_CAPABILITIES: Capability[] = [
+  "INVOICE_READ",
+  "INVOICE_CREATE",
+  "PAYMENT_READ",
+  "PAYMENT_CONFIRM",
+  "TENANT_READ",
+  "TICKET_READ",
+  "TENANT_APPROVE",
+]
+
+export const STAFF_CAPABILITIES: Capability[] = ["INVOICE_READ", "PAYMENT_READ", "TENANT_READ", "TICKET_READ"]

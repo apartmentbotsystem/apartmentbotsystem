@@ -6,7 +6,7 @@ export type ImportInvoiceRowDTO = {
   amount: number
   issueDate: string
   dueDate: string
-  status: "DRAFT" | "ISSUED"
+  status: "DRAFT" | "SENT"
 }
 
 export type RawInvoiceRow = {

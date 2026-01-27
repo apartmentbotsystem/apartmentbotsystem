@@ -4,11 +4,11 @@ import { withErrorHandling } from "@/interface/http/withErrorHandling"
 import { recordPaymentSchema } from "@/interface/validators/payment.schema"
 import { ValidationError } from "@/interface/errors/ValidationError"
 import { respondOk } from "@/interface/http/response"
-import { requireRole } from "@/lib/guards"
+import { requireCapability } from "@/lib/guards"
 import { emitAuditEvent } from "@/infrastructure/audit/audit.service"
 
 export const POST = withErrorHandling(async (req: Request): Promise<Response> => {
-  const session = await requireRole(req, ["ADMIN", "STAFF"])
+  const session = await requireCapability(req, "PAYMENT_CONFIRM")
   const body = await req.json().catch(() => ({}))
   const parsed = recordPaymentSchema.safeParse(body)
   if (!parsed.success) {

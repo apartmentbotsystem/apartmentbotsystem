@@ -58,7 +58,7 @@ describe("Excel Import Preview API", () => {
   it("upload excel valid -> preview + nextAction=UPLOAD_REAL, dryRun no mutation", async () => {
     const data = [
       ["invoiceNo", "roomNo", "tenantName", "amount", "issueDate", "dueDate", "status"],
-      ["INV-001", "101", "John Doe", 1200, "2025-01-05", "2025-01-31", "ISSUED"],
+      ["INV-001", "101", "John Doe", 1200, "2025-01-05", "2025-01-31", "SENT"],
       ["INV-002", "999", "Ghost", 800, "2025-01-05", "2025-01-31", "DRAFT"],
     ]
     const ws = XLSX.utils.aoa_to_sheet(data)
@@ -76,7 +76,7 @@ describe("Excel Import Preview API", () => {
       body: fd,
       headers: { accept: "application/vnd.apartment.v1.1+json" },
     })
-    const { POST: PreviewPOST } = await import("@/app/api/invoices/import/preview/route")
+    const { POST: PreviewPOST } = await import("@/interface/http/handlers/import-preview")
     const res = await PreviewPOST(req)
     expect(res.status).toBe(200)
     const json = await res.json()
@@ -109,7 +109,7 @@ describe("Excel Import Preview API", () => {
       body: fd,
       headers: { accept: "application/vnd.apartment.v1.1+json" },
     })
-    const { POST: PreviewPOST } = await import("@/app/api/invoices/import/preview/route")
+    const { POST: PreviewPOST } = await import("@/interface/http/handlers/import-preview")
     const res = await PreviewPOST(req)
     expect(res.status).toBe(400)
     const json = await res.json()
@@ -138,7 +138,7 @@ describe("Excel Import Preview API", () => {
       body: fd,
       headers: { accept: "application/vnd.apartment.v1.1+json" },
     })
-    const { POST: PreviewPOST } = await import("@/app/api/invoices/import/preview/route")
+    const { POST: PreviewPOST } = await import("@/interface/http/handlers/import-preview")
     const res = await PreviewPOST(req)
     expect(res.status).toBe(200)
     const json = await res.json()

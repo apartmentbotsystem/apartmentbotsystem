@@ -42,7 +42,7 @@ export const GET = withErrorHandling(async (req: Request): Promise<Response> => 
   const take = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 200) : 50
   const where: Record<string, unknown> = {}
   if (status) {
-    const mapped = status === "UNPAID" ? "ISSUED" : status
+    const mapped = status === "UNPAID" ? "SENT" : status
     where.status = mapped
   }
   const rows = await prisma.invoice.findMany({

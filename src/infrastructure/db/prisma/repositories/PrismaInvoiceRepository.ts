@@ -2,6 +2,7 @@ import { prisma } from "@/infrastructure/db/prisma/prismaClient"
 import type { InvoiceRepository, CreateInvoiceInput } from "@/domain/repositories/InvoiceRepository"
 import { Invoice } from "@/domain/entities/Invoice"
 import { assertInvoiceTransition } from "@/domain/invoice-status"
+import type { InvoiceStatus } from "@/domain/invoice-status"
 
 export class PrismaInvoiceRepository implements InvoiceRepository {
   async create(input: CreateInvoiceInput): Promise<Invoice> {
@@ -20,8 +21,7 @@ export class PrismaInvoiceRepository implements InvoiceRepository {
         waterAmount: 0,
         electricAmount: 0,
         totalAmount: input.amount,
-        status: "ISSUED",
-        issuedAt: new Date(),
+        status: "DRAFT",
         dueDate,
       },
     })
@@ -51,15 +51,15 @@ export class PrismaInvoiceRepository implements InvoiceRepository {
     return new Invoice(row.id, row.roomId, row.tenantId, Number(row.totalAmount), row.periodMonth)
   }
 
-  async transitionStatus(id: string, to: "DRAFT" | "ISSUED" | "PAID" | "CANCELLED"): Promise<void> {
+  async transitionStatus(id: string, to: InvoiceStatus): Promise<void> {
     const current = await prisma.invoice.findUnique({ where: { id } })
     if (!current) throw new Error("Invoice not found")
-    assertInvoiceTransition(current.status as "DRAFT" | "ISSUED" | "PAID" | "CANCELLED", to)
+    assertInvoiceTransition(current.status as InvoiceStatus, to)
     await prisma.invoice.update({
       where: { id },
       data: {
         status: to,
-        issuedAt: to === "ISSUED" ? new Date() : current.issuedAt ?? undefined,
+        sentAt: to === "SENT" ? new Date() : current.sentAt ?? undefined,
       },
     })
   }

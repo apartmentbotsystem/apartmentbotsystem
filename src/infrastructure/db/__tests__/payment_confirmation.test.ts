@@ -6,7 +6,7 @@ vi.mock("@/infrastructure/db/prisma/prismaClient", () => {
   type InvoiceRow = { id: string; status: string; totalAmount: number; paidAt?: Date | null }
   type PaymentRow = { invoiceId: string; amount: number; method: string; reference: string | null; paidAt: Date }
   const invoiceStore: Record<string, InvoiceRow> = {
-    "inv-issued": { id: "inv-issued", status: "ISSUED", totalAmount: 1000 },
+    "inv-sent": { id: "inv-sent", status: "SENT", totalAmount: 1000 },
     "inv-draft": { id: "inv-draft", status: "DRAFT", totalAmount: 1000 },
   }
   const payments: PaymentRow[] = []
@@ -19,7 +19,7 @@ vi.mock("@/infrastructure/db/prisma/prismaClient", () => {
         data,
       }: {
         where: { id: string }
-        data: { status: "DRAFT" | "ISSUED" | "PAID" | "CANCELLED"; paidAt: Date }
+        data: { status: "DRAFT" | "SENT" | "PAID" | "CANCELLED"; paidAt: Date }
       }): Promise<InvoiceRow> => {
         const inv = invoiceStore[where.id]
         if (!inv) throw new Error("Invoice not found")
@@ -43,17 +43,17 @@ vi.mock("@/infrastructure/db/prisma/prismaClient", () => {
 })
 
 describe("Payment confirmation", () => {
-  it("fails when invoice is not ISSUED", async () => {
+  it("fails when invoice is not SENT", async () => {
     const repo = new PrismaPaymentRepository()
     await expect(
       repo.record({ invoiceId: "inv-draft", method: "CASH", reference: null }),
     ).rejects.toThrowError(/not payable/)
   })
 
-  it("succeeds and sets status to PAID when ISSUED", async () => {
+  it("succeeds and sets status to PAID when SENT", async () => {
     const repo = new PrismaPaymentRepository()
-    const res = await repo.record({ invoiceId: "inv-issued", method: "CASH", reference: null })
-    expect(res.invoiceId).toBe("inv-issued")
+    const res = await repo.record({ invoiceId: "inv-sent", method: "CASH", reference: null })
+    expect(res.invoiceId).toBe("inv-sent")
     expect(res.method).toBe("CASH")
     expect(res.paidAt).toBeInstanceOf(Date)
   })

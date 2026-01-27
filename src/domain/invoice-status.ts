@@ -1,9 +1,9 @@
-export type InvoiceStatus = "DRAFT" | "ISSUED" | "PAID" | "CANCELLED"
+export type InvoiceStatus = "DRAFT" | "SENT" | "PAID" | "CANCELLED"
 
 export function assertInvoiceTransition(from: InvoiceStatus, to: InvoiceStatus): void {
   const allowed: Record<InvoiceStatus, InvoiceStatus[]> = {
-    DRAFT: ["ISSUED", "CANCELLED"],
-    ISSUED: ["PAID", "CANCELLED"],
+    DRAFT: ["SENT", "CANCELLED"],
+    SENT: ["PAID", "CANCELLED"],
     PAID: [],
     CANCELLED: [],
   }

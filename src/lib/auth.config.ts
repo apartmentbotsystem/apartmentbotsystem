@@ -1,10 +1,12 @@
 export type Role = "ADMIN" | "STAFF"
+import type { Capability } from "@/lib/capabilities"
 
 export type SessionClaims = {
   userId?: string
   role?: Role
   iat?: number
   sessionVersion?: number
+  capabilities?: Capability[]
 }
 
 function parseCookies(header: string | null): Record<string, string> {
@@ -56,7 +58,13 @@ function decodePayload(s: string): Record<string, unknown> | null {
   }
 }
 
-export async function signSession(payload: { userId: string; role: Role; iat: number; sessionVersion: number }): Promise<string> {
+export async function signSession(payload: {
+  userId: string
+  role: Role
+  iat: number
+  sessionVersion: number
+  capabilities?: Capability[]
+}): Promise<string> {
   const secret = getSecret()
   if (!secret) throw new Error("SESSION_SECRET missing")
   const enc = encodePayload(payload)
@@ -84,13 +92,26 @@ export async function verifySession(value: string | undefined): Promise<SessionC
   const role = obj["role"] === "ADMIN" || obj["role"] === "STAFF" ? (obj["role"] as Role) : undefined
   const iat = typeof obj["iat"] === "number" ? (obj["iat"] as number) : undefined
   const sessionVersion = typeof obj["sessionVersion"] === "number" ? (obj["sessionVersion"] as number) : undefined
+  const capsRaw = Array.isArray(obj["capabilities"]) ? (obj["capabilities"] as unknown[]) : []
+  const capabilities = capsRaw
+    .map((v) => (typeof v === "string" ? v : ""))
+    .filter((v) =>
+      [
+        "INVOICE_READ",
+        "INVOICE_CREATE",
+        "PAYMENT_READ",
+        "PAYMENT_CONFIRM",
+        "TENANT_READ",
+        "TICKET_READ",
+      ].includes(v),
+    ) as Capability[]
   if (!userId || !role || !iat) return null
   const now = Math.floor(Date.now() / 1000)
   if (now - iat > SESSION_MAX_AGE) {
     throw httpError(ErrorCodes.UNAUTHORIZED, "Session expired")
   }
   // TODO(F5): compare payload.sessionVersion with server currentSessionVersion
-  return { userId, role, iat, sessionVersion }
+  return { userId, role, iat, sessionVersion, capabilities }
 }
 
 export async function auth(req?: Request): Promise<SessionClaims | null> {

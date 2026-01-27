@@ -4,6 +4,7 @@ import { ValidationError } from "@/interface/errors/ValidationError"
 import { httpError } from "@/interface/errors/HttpError"
 import { ErrorCodes } from "@/interface/errors/error-codes"
 import { signSession, SESSION_MAX_AGE } from "@/lib/auth.config"
+import { ADMIN_CAPABILITIES, STAFF_CAPABILITIES } from "@/lib/capabilities"
 import { emitAuditEvent } from "@/infrastructure/audit/audit.service"
 
 export const runtime = "nodejs"
@@ -78,7 +79,8 @@ export const POST = withErrorHandling(async (req: Request): Promise<Response> =>
       return process.env.NODE_ENV === "production"
     }
   })()
-  const sessionValue = await signSession({ userId, role, iat: Math.floor(Date.now() / 1000), sessionVersion: 1 })
+  const capabilities = role === "ADMIN" ? ADMIN_CAPABILITIES : STAFF_CAPABILITIES
+  const sessionValue = await signSession({ userId, role, iat: Math.floor(Date.now() / 1000), sessionVersion: 1, capabilities })
   const cookieSession = serializeCookie("app_session", sessionValue, {
     maxAge: SESSION_MAX_AGE,
     path: "/",

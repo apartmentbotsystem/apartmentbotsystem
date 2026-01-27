@@ -7,7 +7,7 @@ describe("Excel Invoice Parse & Validate", () => {
   it("parses rows and validates, separating valid and invalid", () => {
     const data = [
       ["invoiceNo", "roomNo", "tenantName", "amount", "issueDate", "dueDate", "status"],
-      ["INV-001", "101", "John Doe", 1200, "2025-01-05", "2025-01-31", "ISSUED"],
+      ["INV-001", "101", "John Doe", 1200, "2025-01-05", "2025-01-31", "SENT"],
       ["INV-002", "102", "Jane Roe", 1000, "2025-01-06", "2025-01-31", "PAID"],
     ]
     const ws = XLSX.utils.aoa_to_sheet(data)

@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "module": "ESNext",
+    "module": "NodeNext",
     "lib": ["ES2017", "DOM"],
     "moduleResolution": "NodeNext",
     "baseUrl": ".",

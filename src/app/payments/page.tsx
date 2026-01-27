@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from "react"
+type SessionInfo = { userId: string | null; role: "ADMIN" | "STAFF" | null; capabilities: string[] }
 
 type Payment = { id: string; invoiceId: string; method: string; reference: string | null; paidAt: string }
 
@@ -13,6 +14,7 @@ export default function PaymentsPage() {
   const [reference, setReference] = useState<string | null>("")
   const [recording, setRecording] = useState(false)
   const [recordError, setRecordError] = useState<string | null>(null)
+  const [canConfirm, setCanConfirm] = useState(false)
 
   async function fetchEnvelope(url: string, init?: RequestInit) {
     const res = await fetch(url, {
@@ -40,6 +42,15 @@ export default function PaymentsPage() {
 
   useEffect(() => {
     load()
+    ;(async () => {
+      try {
+        const data = (await fetchEnvelope("/api/auth/session")) as SessionInfo
+        const caps = Array.isArray(data?.capabilities) ? data.capabilities : []
+        setCanConfirm(caps.includes("PAYMENT_CONFIRM"))
+      } catch {
+        setCanConfirm(false)
+      }
+    })()
   }, [load])
 
   async function recordPayment() {
@@ -65,6 +76,7 @@ export default function PaymentsPage() {
 
   return (
     <div className="space-y-6">
+      {canConfirm && (
       <form
         className="flex items-end gap-2"
         onSubmit={(e) => {
@@ -97,6 +109,7 @@ export default function PaymentsPage() {
           Record Payment
         </button>
       </form>
+      )}
       {recordError && <div className="text-red-600">Error: {recordError}</div>}
       <div className="border rounded p-4 bg-white">
         <div className="flex items-center justify-between mb-3">

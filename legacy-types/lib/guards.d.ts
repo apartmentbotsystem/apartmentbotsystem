@@ -1,3 +1,17 @@
 declare module "@/lib/guards" {
-  export function requireRole(req: Request, roles: string[]): Promise<{ userId: string; role: string }>
+  export type SessionClaims = {
+    userId?: string
+    role?: "ADMIN" | "STAFF"
+    capabilities?: string[]
+  }
+  export type Capability =
+    | "INVOICE_READ"
+    | "INVOICE_CREATE"
+    | "PAYMENT_READ"
+    | "PAYMENT_CONFIRM"
+    | "TENANT_READ"
+    | "TICKET_READ"
+  export async function requireAuth(req: Request): Promise<SessionClaims>
+  export async function requireRole(req: Request, roles: Array<"ADMIN" | "STAFF">): Promise<SessionClaims>
+  export async function requireCapability(req: Request, capability: Capability): Promise<SessionClaims>
 }

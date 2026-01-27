@@ -18,5 +18,16 @@ declare module "@/infrastructure/db/prisma/repositories/PrismaRoomRepository" {
         status: "occupied" | "vacant"
       }>
     >
+    getAdminMonthlyOccupancyDashboard(
+      month: string,
+    ): Promise<
+      Array<{
+        roomId: string
+        totalOccupiedDays: number
+        occupancyRate: number
+        firstOccupiedAt: Date | null
+        lastVacatedAt: Date | null
+      }>
+    >
   }
 }

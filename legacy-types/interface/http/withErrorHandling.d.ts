@@ -1,3 +1,5 @@
 declare module "@/interface/http/withErrorHandling" {
-  export function withErrorHandling<T extends (...args: any[]) => Promise<Response>>(handler: T): T
+  export function withErrorHandling<C extends object | undefined = object>(
+    handler: (req: Request, ctx: C) => Promise<Response>,
+  ): (req: Request, ctx?: C) => Promise<Response>
 }

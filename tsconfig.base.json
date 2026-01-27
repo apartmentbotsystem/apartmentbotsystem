@@ -8,5 +8,12 @@
     "paths": {
       "@/*": ["src/*"]
     }
-  }
+  },
+  "include": [
+    "src/domain/**/*.ts",
+    "src/infrastructure/**/*.ts",
+    "src/interface/**/*.ts",
+    "scripts/**/*.ts"
+  ],
+  "exclude": ["legacy-types/**", "node_modules", "src/app/**", "src/app/**/__tests__/**"]
 }

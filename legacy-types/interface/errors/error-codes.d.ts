@@ -2,7 +2,9 @@
 declare module "@/interface/errors/error-codes" {
   export const ErrorCodes: {
     VALIDATION_ERROR: "VALIDATION_ERROR"
+    INVALID_EXCEL_FORMAT: "INVALID_EXCEL_FORMAT"
     TENANT_NOT_FOUND: "TENANT_NOT_FOUND"
+    TENANT_NOT_IN_ROOM: "TENANT_NOT_IN_ROOM"
     INVOICE_ALREADY_EXISTS: "INVOICE_ALREADY_EXISTS"
     PAYMENT_DUPLICATE: "PAYMENT_DUPLICATE"
     INTERNAL_ERROR: "INTERNAL_ERROR"
@@ -14,7 +16,9 @@ declare module "@/interface/errors/error-codes" {
   export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes]
   export const ErrorStatus: {
     VALIDATION_ERROR: 400
+    INVALID_EXCEL_FORMAT: 400
     TENANT_NOT_FOUND: 404
+    TENANT_NOT_IN_ROOM: 400
     INVOICE_ALREADY_EXISTS: 409
     PAYMENT_DUPLICATE: 409
     INTERNAL_ERROR: 500

@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/guards"
 import { prisma } from "@/infrastructure/db/prisma/prismaClient"
 import { emitAuditEvent } from "@/infrastructure/audit/audit.service"
 import { assertInvoiceTransition } from "@/domain/invoice-status"
+import { ValidationError } from "@/interface/errors/ValidationError"
 
 export const runtime = "nodejs"
 

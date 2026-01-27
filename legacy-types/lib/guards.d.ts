@@ -11,7 +11,7 @@ declare module "@/lib/guards" {
     | "PAYMENT_CONFIRM"
     | "TENANT_READ"
     | "TICKET_READ"
-  export async function requireAuth(req: Request): Promise<SessionClaims>
-  export async function requireRole(req: Request, roles: Array<"ADMIN" | "STAFF">): Promise<SessionClaims>
-  export async function requireCapability(req: Request, capability: Capability): Promise<SessionClaims>
+  export function requireAuth(req: Request): Promise<SessionClaims>
+  export function requireRole(req: Request, roles: Array<"ADMIN" | "STAFF">): Promise<SessionClaims>
+  export function requireCapability(req: Request, capability: Capability): Promise<SessionClaims>
 }

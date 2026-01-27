@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import * as listRoute from "@/app/api/admin/tickets/route"
-import * as detailRoute from "@/app/api/admin/tickets/[id]/route"
-import * as auditRoute from "@/app/api/admin/tickets/[id]/audit/route"
+import * as detailRoute from "@/app/api/admin/tickets/[ticketId]/route"
+import * as auditRoute from "@/app/api/admin/tickets/[ticketId]/audit/route"
 
 vi.mock("@/infrastructure/tickets/ticketRead.service", () => {
   return {
@@ -92,7 +92,7 @@ describe("Admin Tickets Read API", () => {
   })
 
   it("gets ticket detail", async () => {
-    const res = await detailRoute.GET(new Request("http://localhost/api/admin/tickets/t1"), { params: Promise.resolve({ id: "t1" }) })
+    const res = await detailRoute.GET(new Request("http://localhost/api/admin/tickets/t1"), { params: Promise.resolve({ ticketId: "t1" }) })
     expect(res.status).toBe(200)
     const json = (await res.json()) as {
       id: string
@@ -109,7 +109,7 @@ describe("Admin Tickets Read API", () => {
   })
 
   it("gets ticket audit timeline", async () => {
-    const res = await auditRoute.GET(new Request("http://localhost/api/admin/tickets/t1/audit"), { params: Promise.resolve({ id: "t1" }) })
+    const res = await auditRoute.GET(new Request("http://localhost/api/admin/tickets/t1/audit"), { params: Promise.resolve({ ticketId: "t1" }) })
     expect(res.status).toBe(200)
     const json = (await res.json()) as Array<{
       id: string

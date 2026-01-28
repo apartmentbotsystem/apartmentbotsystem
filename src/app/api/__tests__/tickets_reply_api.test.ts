@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { POST as ReplyPOST } from "@/app/api/admin/tickets/[ticketId]/reply/route"
 
 function makeReq(url: string, init?: RequestInit, headers?: Record<string, string>) {
   const h = new Headers(init?.headers || {})
@@ -59,11 +58,21 @@ vi.mock("@/infrastructure/audit/audit.service", () => {
 beforeEach(() => {
   msgCreateCalls = []
   outboxCreateCalls = []
+  vi.resetModules()
+  vi.clearAllMocks()
   vi.restoreAllMocks()
 })
 
 describe("Admin Tickets Reply API", () => {
   it("creates OUTBOUND message and PENDING outbox with JSON-safe audit", async () => {
+    vi.doMock("@/infrastructure/db/prisma/prismaClient", () => {
+      const prisma = {
+        ticket: {
+          findUnique: async () => ({ status: "OPEN" }),
+        },
+      }
+      return { prisma }
+    })
     const body = { messageText: "สวัสดีครับ" }
     const ctx = { params: Promise.resolve({ ticketId: "t-1" }) }
     const req = makeReq(
@@ -71,7 +80,8 @@ describe("Admin Tickets Reply API", () => {
       { method: "POST", body: JSON.stringify(body) },
       { "content-type": "application/json", accept: AcceptEnvelope },
     )
-    const res = await ReplyPOST(req, ctx)
+    const route = await import("@/app/api/admin/tickets/[ticketId]/reply/route")
+    const res = await route.POST(req, ctx)
     expect(res.status).toBe(201)
     const json = await res.json()
     expect(json.success).toBe(true)
@@ -96,7 +106,50 @@ describe("Admin Tickets Reply API", () => {
       { method: "POST", body: JSON.stringify({}) },
       { "content-type": "application/json", accept: AcceptEnvelope },
     )
-    const res = await ReplyPOST(req, ctx)
+    const route = await import("@/app/api/admin/tickets/[ticketId]/reply/route")
+    const res = await route.POST(req, ctx)
     expect(res.status).toBe(400)
+  })
+
+  it("409 when ticket is CLOSED", async () => {
+    vi.doMock("@/infrastructure/db/prisma/prismaClient", () => {
+      const prisma = {
+        ticket: {
+          findUnique: async () => ({ status: "CLOSED" }),
+        },
+      }
+      return { prisma }
+    })
+    const body = { messageText: "ปิดแล้ว" }
+    const ctx = { params: Promise.resolve({ ticketId: "t-closed" }) }
+    const req = makeReq(
+      "http://localhost/api/admin/tickets/t-closed/reply",
+      { method: "POST", body: JSON.stringify(body) },
+      { "content-type": "application/json", accept: AcceptEnvelope },
+    )
+    const route = await import("@/app/api/admin/tickets/[ticketId]/reply/route")
+    const res = await route.POST(req, ctx)
+    expect(res.status).toBe(409)
+  })
+
+  it("404 when ticket not found", async () => {
+    vi.doMock("@/infrastructure/db/prisma/prismaClient", () => {
+      const prisma = {
+        ticket: {
+          findUnique: async () => null,
+        },
+      }
+      return { prisma }
+    })
+    const body = { messageText: "ไม่พบ" }
+    const ctx = { params: Promise.resolve({ ticketId: "t-missing" }) }
+    const req = makeReq(
+      "http://localhost/api/admin/tickets/t-missing/reply",
+      { method: "POST", body: JSON.stringify(body) },
+      { "content-type": "application/json", accept: AcceptEnvelope },
+    )
+    const route = await import("@/app/api/admin/tickets/[ticketId]/reply/route")
+    const res = await route.POST(req, ctx)
+    expect(res.status).toBe(404)
   })
 })

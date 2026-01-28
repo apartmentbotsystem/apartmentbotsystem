@@ -15,6 +15,15 @@ export const POST = withErrorHandling(async (req: Request): Promise<Response> =>
   if (!parsed.success) {
     throw new ValidationError("Invalid invoice input")
   }
+  if (parsed.data.ticketId) {
+    const t = await prisma.ticket.findUnique({ where: { id: parsed.data.ticketId }, select: { status: true } })
+    if (!t) {
+      throw Object.assign(new Error("Ticket not found"), { name: "DomainError", code: "TICKET_NOT_FOUND" })
+    }
+    if (t.status === "CLOSED") {
+      throw Object.assign(new Error("Ticket already closed"), { name: "DomainError", code: "TICKET_ALREADY_CLOSED" })
+    }
+  }
   const usecase = getCreateInvoiceUseCase()
   const result = await usecase.execute({
     roomId: parsed.data.roomId,
@@ -29,7 +38,13 @@ export const POST = withErrorHandling(async (req: Request): Promise<Response> =>
     targetType: "INVOICE",
     targetId: result.id,
     severity: "INFO",
-    metadata: { roomId: parsed.data.roomId, tenantId: parsed.data.tenantId, amount: parsed.data.amount, month: parsed.data.month },
+    metadata: {
+      roomId: parsed.data.roomId,
+      tenantId: parsed.data.tenantId,
+      amount: parsed.data.amount,
+      month: parsed.data.month,
+      ticketId: parsed.data.ticketId ?? null,
+    },
   })
   return respondOk(req, presentInvoiceDTO(result), 201)
 })

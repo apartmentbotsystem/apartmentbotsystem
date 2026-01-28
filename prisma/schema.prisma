@@ -292,3 +292,67 @@ model IdempotencyKey {
 
   @@unique([key, endpoint])
 }
+
+enum AutomationDecision {
+  APPROVED
+  REJECTED
+}
+
+model AutomationApproval {
+  id               String              @id @default(cuid())
+  proposalId       String              @unique
+  decision         AutomationDecision
+  decidedBy        String
+  decidedAt        DateTime            @default(now())
+  note             String?
+  proposalSnapshot Json
+  proposalHash     String
+  executedAt       DateTime?
+  executeResult    Json?
+  createdAt        DateTime            @default(now())
+}
+
+enum AutomationAuditAction {
+  PREVIEW
+  EXECUTE
+  SKIP
+  FAIL
+  AUTO_APPROVED
+  AUTO_EXECUTED
+}
+
+model AutomationAudit {
+  id          String                 @id @default(cuid())
+  approvalId  String
+  proposalId  String
+  action      AutomationAuditAction
+  actorId     String
+  dryRun      Boolean
+  result      Json
+  createdAt   DateTime               @default(now())
+
+  @@index([approvalId, createdAt])
+  @@index([proposalId, createdAt])
+}
+
+enum AutomationProposalType {
+  REMIND_INVOICE
+  ESCALATE_TICKET
+}
+
+enum AutomationMaxSeverity {
+  LOW
+  MEDIUM
+}
+
+model AutomationPolicy {
+  id            String                @id @default(cuid())
+  proposalType  AutomationProposalType
+  maxSeverity   AutomationMaxSeverity
+  autoApprove   Boolean
+  autoExecute   Boolean
+  dailyLimit    Int
+  enabled       Boolean               @default(false)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+}

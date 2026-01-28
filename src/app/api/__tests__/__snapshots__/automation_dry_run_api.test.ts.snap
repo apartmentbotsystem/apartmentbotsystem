@@ -1,0 +1,3 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Automation Dry-Run API > snapshot proposals array 1`] = `"[{"id":"REMIND_INVOICE|OVERDUE_INVOICE|INV-2026-01|6","type":"REMIND_INVOICE","source":"OVERDUE_INVOICE","targetId":"INV-2026-01","recommendedAction":"Send overdue reminder to tenant","reason":"Invoice INV-2026-01 overdue 6 days without payment confirmation","severity":"MEDIUM","generatedAt":"1970-01-01T00:00:00.000Z"},{"id":"ESCALATE_TICKET|NO_REPLY_TICKET|TCK-129|5","type":"ESCALATE_TICKET","source":"NO_REPLY_TICKET","targetId":"TCK-129","recommendedAction":"Escalate ticket to admin for follow-up","reason":"Ticket TCK-129 no tenant response for 5 days","severity":"MEDIUM","generatedAt":"1970-01-01T00:00:00.000Z"}]"`;

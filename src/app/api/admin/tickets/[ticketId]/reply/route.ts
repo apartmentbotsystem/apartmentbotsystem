@@ -8,6 +8,7 @@ import { replyToTicket } from "@/modules/ticket/services/ticketReply.service"
 import { emitAuditEvent } from "@/infrastructure/audit/audit.service"
 import type { AuditEmitter as TicketAuditEmitter } from "@/modules/ticket/services/ticketReply.service"
 import type { AuditEventInput } from "@/infrastructure/audit/audit.service"
+import { prisma } from "@/infrastructure/db/prisma/prismaClient"
 
 export const runtime = "nodejs"
 
@@ -19,6 +20,13 @@ export const POST = withErrorHandling(async (req: Request, ctx: { params: Promis
   const messageText = typeof body?.messageText === "string" ? body.messageText.trim() : ""
   if (!ticketId || !messageText) {
     throw new ValidationError("Invalid reply input")
+  }
+  const current = await prisma.ticket.findUnique({ where: { id: ticketId }, select: { status: true } })
+  if (!current) {
+    throw Object.assign(new Error("Ticket not found"), { name: "DomainError", code: "TICKET_NOT_FOUND" })
+  }
+  if (current.status === "CLOSED") {
+    throw Object.assign(new Error("Ticket already closed"), { name: "DomainError", code: "TICKET_ALREADY_CLOSED" })
   }
   const messages = new TicketMessageGatewayPrisma()
   const outbox = new TicketOutboxGatewayPrisma()

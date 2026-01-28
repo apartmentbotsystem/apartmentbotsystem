@@ -8,6 +8,12 @@ export function mapDomainError(err: MaybeDomainError): HttpError {
   if (err.name === "DomainError" && typeof err.code === "string") {
     const code = err.code as keyof typeof ErrorCodes
     switch (code) {
+      case "TICKET_NOT_FOUND":
+        return httpError(ErrorCodes.TICKET_NOT_FOUND, "Ticket not found")
+      case "TICKET_ALREADY_CLOSED":
+        return httpError(ErrorCodes.TICKET_ALREADY_CLOSED, "Ticket already closed")
+      case "INVALID_TICKET_STATUS":
+        return httpError(ErrorCodes.INVALID_TICKET_STATUS, "Invalid ticket status")
       case "TENANT_NOT_FOUND":
         return httpError(ErrorCodes.TENANT_NOT_FOUND, "Tenant does not exist")
       case "INVOICE_ALREADY_EXISTS":

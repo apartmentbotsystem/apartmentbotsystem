@@ -33,6 +33,25 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <Link href="/activity" className="hover:underline">
                 Activity Log
               </Link>
+              <div className="pt-2 border-t border-slate-700" />
+              <div className="text-sm opacity-80">Automation Candidates</div>
+              <Link href="/admin/automation-candidates/invoices/overdue" className="hover:underline">
+                Invoices: Overdue
+              </Link>
+              <Link href="/admin/automation-candidates/invoices/unpaid-old" className="hover:underline">
+                Invoices: Unpaid Old
+              </Link>
+              <Link href="/admin/automation-candidates/tickets/no-reply" className="hover:underline">
+                Tickets: No-Reply
+              </Link>
+              <div className="pt-2 border-t border-slate-700" />
+              <div className="text-sm opacity-80">Automation</div>
+              <Link href="/admin/automation/dry-run" className="hover:underline">
+                Dry-Run Preview
+              </Link>
+              <Link href="/admin/automation/approvals" className="hover:underline">
+                Approvals
+              </Link>
               <form action="/api/auth/logout" method="post">
                 <button className="rounded bg-slate-700 px-3 py-1 hover:bg-slate-600">Logout</button>
               </form>

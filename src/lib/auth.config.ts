@@ -1,4 +1,4 @@
-export type Role = "ADMIN" | "STAFF"
+export type Role = "ADMIN" | "STAFF" | "TENANT"
 import type { Capability } from "@/lib/capabilities"
 
 export type SessionClaims = {
@@ -89,7 +89,7 @@ export async function verifySession(value: string | undefined): Promise<SessionC
   const obj = decodePayload(enc)
   if (!obj) return null
   const userId = typeof obj["userId"] === "string" ? (obj["userId"] as string) : undefined
-  const role = obj["role"] === "ADMIN" || obj["role"] === "STAFF" ? (obj["role"] as Role) : undefined
+  const role = obj["role"] === "ADMIN" || obj["role"] === "STAFF" || obj["role"] === "TENANT" ? (obj["role"] as Role) : undefined
   const iat = typeof obj["iat"] === "number" ? (obj["iat"] as number) : undefined
   const sessionVersion = typeof obj["sessionVersion"] === "number" ? (obj["sessionVersion"] as number) : undefined
   const capsRaw = Array.isArray(obj["capabilities"]) ? (obj["capabilities"] as unknown[]) : []

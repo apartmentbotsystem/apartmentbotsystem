@@ -5,6 +5,8 @@ import { prisma } from "@/infrastructure/db/prisma/prismaClient"
 
 export const runtime = "nodejs"
 
+const FRESHNESS_THRESHOLD_MS = 15 * 60 * 1000
+
 function isValidMonth(s: string): boolean {
   return /^\d{4}-\d{2}$/.test(s)
 }
@@ -43,6 +45,7 @@ export const GET = withErrorHandling(async (req: Request): Promise<Response> => 
   }
   const start = startOfMonthUTC(month)
   const end = endOfMonthUTC(month)
+  const calculatedAt = new Date()
 
   const invoices = await prisma.invoice.findMany({
     where: { periodMonth: month },
@@ -74,12 +77,15 @@ export const GET = withErrorHandling(async (req: Request): Promise<Response> => 
     count: invoices.filter((r: Row) => r.paidAt && fmtDate(r.paidAt) === d).length,
   }))
 
+  const nowCheck = new Date()
+  const freshnessMs = Math.max(0, nowCheck.getTime() - calculatedAt.getTime())
+  const status = freshnessMs > FRESHNESS_THRESHOLD_MS ? "STALE" : "OK"
   const payload = {
     periodMonth: month,
     totals: { issuedCount, sentCount, paidCount, unpaidCount },
     amounts: { paidTotal, unpaidTotal },
     trends: { sentDaily, paidDaily },
+    meta: { status, calculatedAt: calculatedAt.toISOString(), freshnessMs },
   }
   return respondOk(req, payload, 200)
 })
-

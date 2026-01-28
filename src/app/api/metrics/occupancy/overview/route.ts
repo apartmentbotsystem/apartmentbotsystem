@@ -5,6 +5,8 @@ import { prisma } from "@/infrastructure/db/prisma/prismaClient"
 
 export const runtime = "nodejs"
 
+const FRESHNESS_THRESHOLD_MS = 15 * 60 * 1000
+
 function isValidMonth(s: string): boolean {
   return /^\d{4}-\d{2}$/.test(s)
 }
@@ -46,6 +48,7 @@ export const GET = withErrorHandling(async (req: Request): Promise<Response> => 
   }
   const start = startOfMonthUTC(month)
   const end = endOfMonthUTC(month)
+  const calculatedAt = new Date()
 
   const rooms = await prisma.room.findMany({
     orderBy: { roomNumber: "asc" },
@@ -83,12 +86,15 @@ export const GET = withErrorHandling(async (req: Request): Promise<Response> => 
     count: events.filter((e: Ev) => fmtDate(e.eventAt) === d && String(e.type) === "MOVE_OUT").length,
   }))
 
+  const nowCheck = new Date()
+  const freshnessMs = Math.max(0, nowCheck.getTime() - calculatedAt.getTime())
+  const status = freshnessMs > FRESHNESS_THRESHOLD_MS ? "STALE" : "OK"
   const payload = {
     periodMonth: month,
     kpis: { totalRooms, occupiedRooms, vacantRooms, occupancyRate },
     monthly: { moveInCount, moveOutCount },
     trends: { moveInDaily, moveOutDaily },
+    meta: { status, calculatedAt: calculatedAt.toISOString(), freshnessMs },
   }
   return respondOk(req, payload, 200)
 })
-

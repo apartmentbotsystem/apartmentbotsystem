@@ -1,67 +1,88 @@
 type Occupancy = { totalRooms: number; occupiedRooms: number; availableRooms: number; occupancyRate: number }
 type ActivityItem = { id: string; createdAt: string; action: string; entityType: string; entityId: string }
 type UnpaidInvoice = { id: string; roomId: string; tenantId: string; amount: number; dueDate?: string }
+type Meta = { status: "OK" | "STALE" | "PARTIAL" | "ERROR"; calculatedAt: string; freshnessMs?: number; reason?: string }
 
 export default async function DashboardPage() {
-  async function fetchJson(url: string) {
+  async function fetchResilient<T>(url: string, fallback: T): Promise<{ data: T; meta: Meta }> {
     const res = await fetch(url, { headers: { accept: "application/vnd.apartment.v1.1+json" }, cache: "no-store" })
-    const json = await res.json()
-    if (json.success) return json.data
-    throw new Error(json.error?.message || "Error")
+    const now = new Date()
+    try {
+      const json = await res.json()
+      if (json && typeof json === "object" && "success" in json) {
+        if (json.success) {
+          const m = (json.data && (json.data.meta as Meta)) || { status: "OK", calculatedAt: now.toISOString() }
+          return { data: json.data as T, meta: m }
+        }
+        const message = (json.error && json.error.message) || "Error"
+        return { data: fallback, meta: { status: "ERROR", calculatedAt: now.toISOString(), reason: String(message) } }
+      }
+      return { data: (json as T) ?? fallback, meta: { status: "OK", calculatedAt: now.toISOString() } }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      return { data: fallback, meta: { status: "ERROR", calculatedAt: now.toISOString(), reason: msg } }
+    }
   }
   async function loadData(): Promise<{
-    occupancy: Occupancy | null
-    activity: ActivityItem[] | null
-    unpaid: UnpaidInvoice[] | null
+    occupancy: { data: Occupancy | null; meta: Meta }
+    activity: { data: ActivityItem[] | null; meta: Meta }
+    unpaid: { data: UnpaidInvoice[] | null; meta: Meta }
   }> {
-    try {
-      const results = await Promise.all([
-        fetchJson("/api/reports/occupancy"),
-        fetchJson("/api/activity?limit=10"),
-        fetchJson("/api/invoices?status=UNPAID&limit=5"),
-      ])
-      const [o, a, u] = results as [Occupancy | null, ActivityItem[] | null, UnpaidInvoice[] | null]
-      return { occupancy: o, activity: a, unpaid: u }
-    } catch {
-      return { occupancy: null, activity: null, unpaid: null }
-    }
+    const [o, a, u] = await Promise.all([
+      fetchResilient<Occupancy>("/api/reports/occupancy", { totalRooms: 0, occupiedRooms: 0, availableRooms: 0, occupancyRate: 0 }),
+      fetchResilient<ActivityItem[]>("/api/activity?limit=10", []),
+      fetchResilient<UnpaidInvoice[]>("/api/invoices?status=UNPAID&limit=5", []),
+    ])
+    return { occupancy: { data: o.data, meta: o.meta }, activity: { data: a.data, meta: a.meta }, unpaid: { data: u.data, meta: u.meta } }
   }
   const { occupancy, activity, unpaid } = await loadData()
   return (
     <div className="space-y-6">
       <section className="border rounded p-4 bg-white">
         <h2 className="font-semibold mb-2">Occupancy</h2>
-        <OccupancyBlock occupancy={occupancy} />
+        <OccupancyBlock occupancy={occupancy.data} meta={occupancy.meta} />
       </section>
       <div className="grid grid-cols-2 gap-6">
         <section className="border rounded p-4 bg-white">
           <h2 className="font-semibold mb-2">Unpaid Invoices</h2>
-          <UnpaidBlock unpaid={unpaid} />
+          <UnpaidBlock unpaid={unpaid.data} meta={unpaid.meta} />
         </section>
         <section className="border rounded p-4 bg-white">
           <h2 className="font-semibold mb-2">Recent Activity</h2>
-          <ActivityBlock activity={activity} />
+          <ActivityBlock activity={activity.data} meta={activity.meta} />
         </section>
       </div>
     </div>
   )
 }
 
-function OccupancyBlock({ occupancy }: { occupancy: Occupancy | null }) {
-  if (!occupancy) return <div className="text-slate-500">เกิดข้อผิดพลาดในการโหลด</div>
+function OccupancyBlock({ occupancy, meta }: { occupancy: Occupancy | null; meta: Meta }) {
   return (
     <div className="flex gap-6">
-      <div>Rooms: {occupancy.totalRooms}</div>
-      <div>Occupied: {occupancy.occupiedRooms}</div>
-      <div>Available: {occupancy.availableRooms}</div>
-      <div>Rate: {Math.round(occupancy.occupancyRate * 100)}%</div>
+      <div>Rooms: {occupancy ? occupancy.totalRooms : 0}</div>
+      <div>Occupied: {occupancy ? occupancy.occupiedRooms : 0}</div>
+      <div>Available: {occupancy ? occupancy.availableRooms : 0}</div>
+      <div>Rate: {occupancy ? Math.round(occupancy.occupancyRate * 100) : 0}%</div>
+      <div className="text-xs text-slate-500">
+        {meta.status === "STALE" ? "ข้อมูลอาจไม่อัปเดตล่าสุด" : meta.status === "ERROR" ? "เกิดข้อผิดพลาดในการคำนวณ" : null}
+        {meta.calculatedAt ? ` • calculatedAt: ${meta.calculatedAt}` : null}
+      </div>
     </div>
   )
 }
 
-function UnpaidBlock({ unpaid }: { unpaid: UnpaidInvoice[] | null }) {
-  if (!unpaid) return <div className="text-slate-500">เกิดข้อผิดพลาดในการโหลด</div>
-  if (!unpaid.length) return <div className="text-slate-500">ไม่มีบิลค้างชำระ</div>
+function UnpaidBlock({ unpaid, meta }: { unpaid: UnpaidInvoice[] | null; meta: Meta }) {
+  if (!unpaid || unpaid.length === 0) {
+    return (
+      <div>
+        <div className="text-slate-500">{unpaid ? "ไม่มีบิลค้างชำระ" : "ไม่มีข้อมูล"}</div>
+        <div className="text-xs text-slate-500">
+          {meta.status === "STALE" ? "ข้อมูลอาจไม่อัปเดตล่าสุด" : meta.status === "ERROR" ? "เกิดข้อผิดพลาดในการคำนวณ" : null}
+          {meta.calculatedAt ? ` • calculatedAt: ${meta.calculatedAt}` : null}
+        </div>
+      </div>
+    )
+  }
   return (
     <table className="w-full text-sm">
       <thead>
@@ -88,9 +109,18 @@ function UnpaidBlock({ unpaid }: { unpaid: UnpaidInvoice[] | null }) {
   )
 }
 
-function ActivityBlock({ activity }: { activity: ActivityItem[] | null }) {
-  if (!activity) return <div className="text-slate-500">เกิดข้อผิดพลาดในการโหลด</div>
-  if (!activity.length) return <div className="text-slate-500">ไม่มีรายการกิจกรรม</div>
+function ActivityBlock({ activity, meta }: { activity: ActivityItem[] | null; meta: Meta }) {
+  if (!activity || activity.length === 0) {
+    return (
+      <div>
+        <div className="text-slate-500">{activity ? "ไม่มีรายการกิจกรรม" : "ไม่มีข้อมูล"}</div>
+        <div className="text-xs text-slate-500">
+          {meta.status === "STALE" ? "ข้อมูลอาจไม่อัปเดตล่าสุด" : meta.status === "ERROR" ? "เกิดข้อผิดพลาดในการคำนวณ" : null}
+          {meta.calculatedAt ? ` • calculatedAt: ${meta.calculatedAt}` : null}
+        </div>
+      </div>
+    )
+  }
   return (
     <table className="w-full text-sm">
       <thead>

@@ -8,6 +8,7 @@ type DrilldownItem = { id: string; roomId: string | null; tenantId: string | nul
 type Totals = { issuedCount: number; sentCount: number; paidCount: number; unpaidCount: number }
 type Amounts = { paidTotal: number; unpaidTotal: number }
 type TrendItem = { date: string; count: number }
+type Meta = { status: 'OK' | 'STALE' | 'PARTIAL' | 'ERROR'; calculatedAt: string; freshnessMs?: number; reason?: string }
 
 function currentMonth(): string {
   const now = new Date()
@@ -27,6 +28,26 @@ async function fetchEnvelope<T>(url: string): Promise<T> {
   return json as T
 }
 
+async function fetchResilient<T>(url: string, fallback: T): Promise<{ data: T; meta: Meta }> {
+  const now = new Date()
+  try {
+    const res = await fetch(url, { headers: { accept: 'application/vnd.apartment.v1.1+json' }, cache: 'no-store' })
+    const json = await res.json()
+    if (json && typeof json === 'object' && 'success' in json) {
+      if (json.success) {
+        const m = (json.data && (json.data.meta as Meta)) || { status: 'OK', calculatedAt: now.toISOString() }
+        return { data: json.data as T, meta: m }
+      }
+      const message = (json.error && json.error.message) || 'Error'
+      return { data: fallback, meta: { status: 'ERROR', calculatedAt: now.toISOString(), reason: String(message) } }
+    }
+    return { data: (json as T) ?? fallback, meta: { status: 'OK', calculatedAt: now.toISOString() } }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return { data: fallback, meta: { status: 'ERROR', calculatedAt: now.toISOString(), reason: msg } }
+  }
+}
+
 export default function AdminOverviewPage() {
   const [month, setMonth] = useState<string>(currentMonth())
   const [totals, setTotals] = useState<Totals | null>(null)
@@ -37,6 +58,9 @@ export default function AdminOverviewPage() {
   const [moveInDaily, setMoveInDaily] = useState<TrendItem[]>([])
   const [moveOutDaily, setMoveOutDaily] = useState<TrendItem[]>([])
   const [aging, setAging] = useState<BillingAgingMetricsDTO | null>(null)
+  const [billingMeta, setBillingMeta] = useState<Meta | null>(null)
+  const [occupancyMeta, setOccupancyMeta] = useState<Meta | null>(null)
+  const [agingMeta, setAgingMeta] = useState<Meta | null>(null)
   const [selectedBucket, setSelectedBucket] = useState<BucketKey | null>(null)
   const [drillItems, setDrillItems] = useState<DrilldownItem[] | null>(null)
   const [drillLoading, setDrillLoading] = useState(false)
@@ -48,27 +72,46 @@ export default function AdminOverviewPage() {
     setLoading(true)
     setError(null)
     try {
-      const data = await fetchEnvelope<{
+      const billing = await fetchResilient<{
         periodMonth: string
         totals: Totals
         amounts: Amounts
         trends: { sentDaily: TrendItem[]; paidDaily: TrendItem[] }
-      }>(`/api/metrics/billing/overview?month=${encodeURIComponent(month)}`)
-      setTotals(data.totals)
-      setAmounts(data.amounts)
-      setSentDaily(data.trends.sentDaily)
-      setPaidDaily(data.trends.paidDaily)
-      const occData = await fetchEnvelope<{
+        meta?: Meta
+      }>(`/api/metrics/billing/overview?month=${encodeURIComponent(month)}`, {
+        periodMonth: month,
+        totals: { issuedCount: 0, sentCount: 0, paidCount: 0, unpaidCount: 0 },
+        amounts: { paidTotal: 0, unpaidTotal: 0 },
+        trends: { sentDaily: [], paidDaily: [] },
+      })
+      setTotals(billing.data.totals)
+      setAmounts(billing.data.amounts)
+      setSentDaily(billing.data.trends.sentDaily)
+      setPaidDaily(billing.data.trends.paidDaily)
+      setBillingMeta(billing.meta)
+      const occRes = await fetchResilient<{
         periodMonth: string
         kpis: { totalRooms: number; occupiedRooms: number; vacantRooms: number; occupancyRate: number }
         monthly: { moveInCount: number; moveOutCount: number }
         trends: { moveInDaily: TrendItem[]; moveOutDaily: TrendItem[] }
-      }>(`/api/metrics/occupancy/overview?month=${encodeURIComponent(month)}`)
-      setOcc(occData.kpis)
-      setMoveInDaily(occData.trends.moveInDaily)
-      setMoveOutDaily(occData.trends.moveOutDaily)
+        meta?: Meta
+      }>(`/api/metrics/occupancy/overview?month=${encodeURIComponent(month)}`, {
+        periodMonth: month,
+        kpis: { totalRooms: 0, occupiedRooms: 0, vacantRooms: 0, occupancyRate: 0 },
+        monthly: { moveInCount: 0, moveOutCount: 0 },
+        trends: { moveInDaily: [], moveOutDaily: [] },
+      })
+      setOcc(occRes.data.kpis)
+      setMoveInDaily(occRes.data.trends.moveInDaily)
+      setMoveOutDaily(occRes.data.trends.moveOutDaily)
+      setOccupancyMeta(occRes.meta)
       const agingData = await fetchEnvelope<BillingAgingMetricsDTO>(`/api/metrics/billing/aging?month=${encodeURIComponent(month)}`)
       setAging(agingData)
+      setAgingMeta({
+        status: agingData.meta.status === 'STALE' ? 'STALE' : 'OK',
+        calculatedAt: agingData.meta.calculatedAt,
+        freshnessMs: agingData.meta.freshnessMs,
+      })
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       setError(msg)
@@ -80,6 +123,9 @@ export default function AdminOverviewPage() {
       setMoveInDaily([])
       setMoveOutDaily([])
       setAging(null)
+      setBillingMeta({ status: 'ERROR', calculatedAt: new Date().toISOString(), reason: 'โหลดข้อมูลล้มเหลว' })
+      setOccupancyMeta({ status: 'ERROR', calculatedAt: new Date().toISOString(), reason: 'โหลดข้อมูลล้มเหลว' })
+      setAgingMeta({ status: 'ERROR', calculatedAt: new Date().toISOString(), reason: 'โหลดข้อมูลล้มเหลว' })
     } finally {
       setLoading(false)
     }
@@ -167,6 +213,10 @@ export default function AdminOverviewPage() {
           </div>
         ))}
       </div>
+      <div className="text-xs text-slate-500">
+        {billingMeta?.status === 'STALE' ? 'ข้อมูลอาจไม่อัปเดตล่าสุด' : billingMeta?.status === 'ERROR' ? 'เกิดข้อผิดพลาดในการคำนวณ' : null}
+        {billingMeta?.calculatedAt ? ` • calculatedAt: ${billingMeta.calculatedAt}` : null}
+      </div>
       <div className="space-y-2">
         <h3 className="font-semibold">Trend Summary</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -214,6 +264,10 @@ export default function AdminOverviewPage() {
               ))}
             </ul>
           </div>
+          <div className="text-xs text-slate-500">
+            {occupancyMeta?.status === 'STALE' ? 'ข้อมูลอาจไม่อัปเดตล่าสุด' : occupancyMeta?.status === 'ERROR' ? 'เกิดข้อผิดพลาดในการคำนวณ' : null}
+            {occupancyMeta?.calculatedAt ? ` • calculatedAt: ${occupancyMeta.calculatedAt}` : null}
+          </div>
         </div>
       </div>
       <div className="space-y-2">
@@ -240,6 +294,10 @@ export default function AdminOverviewPage() {
               {aging && aging.totals.issuedCount === 0 ? '—' : `${aging?.totals.overduePercentOfIssued ?? 0}%`}
             </div>
           </div>
+        </div>
+        <div className="text-xs text-slate-500">
+          {agingMeta?.status === 'STALE' ? 'ข้อมูลอาจไม่อัปเดตล่าสุด' : agingMeta?.status === 'ERROR' ? 'เกิดข้อผิดพลาดในการคำนวณ' : null}
+          {agingMeta?.calculatedAt ? ` • calculatedAt: ${agingMeta.calculatedAt}` : null}
         </div>
         {selectedBucket ? (
           <div className="mt-3 p-3 border rounded">

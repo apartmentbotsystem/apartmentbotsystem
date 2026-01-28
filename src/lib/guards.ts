@@ -14,7 +14,7 @@ export async function requireAuth(req: Request): Promise<SessionClaims> {
   return session
 }
 
-export async function requireRole(req: Request, roles: Array<"ADMIN" | "STAFF">): Promise<SessionClaims> {
+export async function requireRole(req: Request, roles: Array<"ADMIN" | "STAFF" | "TENANT">): Promise<SessionClaims> {
   const session = await requireAuth(req)
   if (!session.role || !roles.includes(session.role)) {
     throw httpError(ErrorCodes.FORBIDDEN, "Forbidden")

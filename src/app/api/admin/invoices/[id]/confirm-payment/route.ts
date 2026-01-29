@@ -5,12 +5,15 @@ import { prisma } from "@/infrastructure/db/prisma/prismaClient"
 import { emitAuditEvent } from "@/infrastructure/audit/audit.service"
 import { assertInvoiceTransition } from "@/domain/invoice-status"
 import { ValidationError } from "@/interface/errors/ValidationError"
+import { logger } from "@/interface/logger/logger"
+import { buildRequestMeta } from "@/interface/http/request-context"
 
 export const runtime = "nodejs"
 
 export const POST = withErrorHandling(async (req: Request, ctx: { params: Promise<{ id: string }> }): Promise<Response> => {
   const session = await requireRole(req, ["ADMIN"])
   const { id } = await ctx.params
+  const meta = buildRequestMeta(req)
   const body = (await req.json().catch(() => ({}))) as { paymentNote?: string | null }
   const idemKey = req.headers.get("x-idempotency-key")
   const endpoint = "/api/admin/invoices/[id]/confirm-payment"
@@ -19,17 +22,21 @@ export const POST = withErrorHandling(async (req: Request, ctx: { params: Promis
     const existing = await prisma.idempotencyKey.findFirst({ where: { key: idemKey, endpoint } })
     if (existing) {
       if (existing.requestHash !== requestHash) {
+        logger.warn({ requestId: meta.requestId, method: meta.method, path: meta.path, status: 409, userId: meta.userId, role: meta.role })
         return respondError(req, "IDEMPOTENCY_KEY_MISMATCH", "Idempotency key reuse with different request", 409)
       }
+      logger.info({ requestId: meta.requestId, method: meta.method, path: meta.path, status: 200, userId: meta.userId, role: meta.role })
       return respondOk(req, existing.responseSnapshot as unknown as Record<string, unknown>, 200)
     }
   }
   const invoice = await prisma.invoice.findUnique({ where: { id } })
   if (!invoice) {
+    logger.warn({ requestId: meta.requestId, method: meta.method, path: meta.path, status: 404, userId: meta.userId, role: meta.role })
     return respondError(req, "INVOICE_NOT_FOUND", "Invoice not found", 404)
   }
   const cur = String(invoice.status)
   if (cur !== "SENT") {
+    logger.warn({ requestId: meta.requestId, method: meta.method, path: meta.path, status: 400, userId: meta.userId, role: meta.role })
     return respondError(req, "INVALID_STATUS", "Invoice is not in SENT status", 400)
   }
   assertInvoiceTransition("SENT", "PAID")
@@ -84,5 +91,6 @@ export const POST = withErrorHandling(async (req: Request, ctx: { params: Promis
     } catch {
     }
   }
+  logger.info({ requestId: meta.requestId, method: meta.method, path: meta.path, status: 200, userId: meta.userId, role: meta.role })
   return respondOk(req, payload, 200)
 })

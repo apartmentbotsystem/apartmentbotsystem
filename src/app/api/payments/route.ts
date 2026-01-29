@@ -4,6 +4,8 @@ import { PrismaPaymentRepository } from "@/infrastructure/db/prisma/repositories
 import { presentPaymentDTO } from "@/interface/presenters/payment.presenter"
 import { requireRole } from "@/lib/guards"
 import type { Payment } from "@/domain/entities/Payment"
+import { logger } from "@/interface/logger/logger"
+import { buildRequestMeta } from "@/interface/http/request-context"
 
 export const runtime = "nodejs"
 
@@ -15,6 +17,7 @@ export const GET = withErrorHandling(async (req: Request): Promise<Response> => 
   const paidAfterStr = url.searchParams.get("paidAfter") || undefined
   const paidBeforeStr = url.searchParams.get("paidBefore") || undefined
   const repo = new PrismaPaymentRepository()
+  const meta = buildRequestMeta(req)
   const filter: {
     invoiceId?: string
     method?: string
@@ -33,5 +36,13 @@ export const GET = withErrorHandling(async (req: Request): Promise<Response> => 
   }
   const rows = await repo.findAll(filter)
   const data = rows.map((p: Payment) => presentPaymentDTO(p))
+  logger.info({
+    requestId: meta.requestId,
+    method: meta.method,
+    path: meta.path,
+    status: 200,
+    userId: meta.userId,
+    role: meta.role,
+  })
   return respondOk(req, data, 200)
 })

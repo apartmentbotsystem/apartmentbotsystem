@@ -33,6 +33,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <Link href="/activity" className="hover:underline">
                 Activity Log
               </Link>
+              <Link href="/admin/diagnostics" className="hover:underline">
+                Diagnostics
+              </Link>
               <div className="pt-2 border-t border-slate-700" />
               <div className="text-sm opacity-80">Automation Candidates</div>
               <Link href="/admin/automation-candidates/invoices/overdue" className="hover:underline">

@@ -25,6 +25,7 @@ export default function BillingPage() {
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [confirmNote, setConfirmNote] = useState<string>("")
   const [confirmError, setConfirmError] = useState<string | null>(null)
+  const [confirmSubmitting, setConfirmSubmitting] = useState(false)
   const [remindingId, setRemindingId] = useState<string | null>(null)
   const [remindError, setRemindError] = useState<string | null>(null)
   const [remindSending, setRemindSending] = useState(false)
@@ -91,21 +92,34 @@ export default function BillingPage() {
     load()
   }, [load])
 
+  function mapConfirmError(msg: string): string {
+    const m = String(msg || "").toLowerCase()
+    if (m.includes("invoice not found")) return "ไม่พบใบแจ้งหนี้"
+    if (m.includes("not in sent status")) return "สถานะใบแจ้งหนี้ไม่พร้อมยืนยัน (ต้องเป็น SENT)"
+    if (m.includes("idempotency key reuse")) return "คีย์ idempotency ซ้ำกับข้อมูลต่างกัน กรุณาลองใหม่"
+    return "เกิดข้อผิดพลาดในการยืนยันการชำระเงิน กรุณาลองอีกครั้ง"
+  }
+
   async function confirmPayment(id: string) {
     if (role !== "ADMIN") return
+    if (confirmSubmitting) return
     setConfirmError(null)
+    setConfirmSubmitting(true)
     try {
+      const idem = `confirm-${id}-${Date.now()}`
       await fetchEnvelope(`/api/admin/invoices/${encodeURIComponent(id)}/confirm-payment`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", "x-idempotency-key": idem },
         body: JSON.stringify({ paymentNote: confirmNote || undefined }),
       })
       setConfirmingId(null)
       setConfirmNote("")
       await load()
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      setConfirmError(msg)
+      const raw = e instanceof Error ? e.message : String(e)
+      setConfirmError(mapConfirmError(raw))
+    } finally {
+      setConfirmSubmitting(false)
     }
   }
 
@@ -262,9 +276,9 @@ export default function BillingPage() {
               <button
                 onClick={() => confirmPayment(confirmingId)}
                 className="rounded bg-blue-700 px-3 py-1 text-white"
-                disabled={role !== "ADMIN"}
+                disabled={role !== "ADMIN" || confirmSubmitting}
               >
-                Confirm
+                {confirmSubmitting ? "Confirming..." : "Confirm"}
               </button>
             </div>
           </div>

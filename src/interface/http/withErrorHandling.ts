@@ -100,6 +100,25 @@ export function withErrorHandling<C extends object | undefined = object>(
         })
         return res
       }
+      const maybeHttp = e as { name?: string; status?: number; code?: string; message?: string }
+      if (maybeHttp?.name === "HttpError" && typeof maybeHttp.status === "number" && typeof maybeHttp.code === "string") {
+        const elapsed = Date.now() - start
+        const res = respondError(req, maybeHttp.code, maybeHttp.message || "Error", maybeHttp.status)
+        res.headers.set("x-request-id", meta.requestId)
+        res.headers.set("x-response-time", String(elapsed))
+        logger.error({
+          requestId: meta.requestId,
+          method: meta.method,
+          path: meta.path,
+          status: maybeHttp.status,
+          errorCode: maybeHttp.code,
+          message: maybeHttp.message,
+          stack: (e as Error).stack,
+          userId: meta.userId,
+          role: meta.role,
+        })
+        return res
+      }
       const mapped = mapDomainError(e as Error)
       const elapsed = Date.now() - start
       const res = respondError(req, mapped.code, mapped.message, mapped.status)

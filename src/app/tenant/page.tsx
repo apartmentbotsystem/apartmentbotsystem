@@ -130,6 +130,36 @@ export default function TenantDashboardPage() {
           </tbody>
         </table>
       </section>
+      <section className="border rounded p-4 bg-white">
+        <h3 className="font-semibold mb-2">สถานะการชำระเงิน</h3>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left">
+              <th>Invoice</th>
+              <th>PAYMENT_REPORTED</th>
+              <th>CONFIRMED (PAID)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(invoices || []).map((it) => {
+              const confirmedAt =
+                (it.payments || []).reduce<string | null>((latest, p) => {
+                  const lp = latest ? new Date(latest).getTime() : 0
+                  const cp = p.paidAt ? new Date(p.paidAt).getTime() : 0
+                  return cp > lp ? p.paidAt : latest
+                }, null) || "-"
+              return (
+                <tr key={`timeline-${it.invoiceId}`} className="border-t">
+                  <td>{it.invoiceId}</td>
+                  <td>-</td>
+                  <td>{confirmedAt}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+        <div className="text-xs text-slate-500 mt-2">เวลาถูกแสดงเป็นรูปแบบมาตรฐานและอิงข้อมูลที่มีอยู่</div>
+      </section>
     </div>
   )
 }

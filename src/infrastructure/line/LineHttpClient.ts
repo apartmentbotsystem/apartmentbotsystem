@@ -5,7 +5,7 @@ export class LineHttpClient {
   constructor(token: string) {
     this.token = token
   }
-  async replyMessage(input: { replyToken: string; messages: Array<{ type: "text"; text: string }> }): Promise<void> {
+  async replyMessage(input: { replyToken: string; messages: Array<Record<string, unknown>> }): Promise<void> {
     const resp = await fetch(`${this.baseUrl}/message/reply`, {
       method: "POST",
       headers: {
@@ -21,7 +21,7 @@ export class LineHttpClient {
       throw Object.assign(new Error(`${resp.status} ${text}`), { name: "DomainError", code: "LINE_API_ERROR" })
     }
   }
-  async pushMessage(input: { to: string; messages: Array<{ type: "text"; text: string }> }): Promise<void> {
+  async pushMessage(input: { to: string; messages: Array<Record<string, unknown>> }): Promise<void> {
     const resp = await fetch(`${this.baseUrl}/message/push`, {
       method: "POST",
       headers: {

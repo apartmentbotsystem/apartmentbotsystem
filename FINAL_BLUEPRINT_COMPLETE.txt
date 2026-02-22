@@ -1,0 +1,350 @@
+ULTRA MASTER DELIVERABLE — Apartment ERP Blueprint (Feb 2026) Compliance
+
+========================================
+SECTION 0 — FULL REPOSITORY AUDIT
+========================================
+1) Prisma Models (from prisma/schema.prisma)
+- Tenant, User, Role, Permission, UserRole
+- Floor, Room (status, type)
+- Resident, LineBinding
+- Contract, MoveHistory
+- BillingMonth (closed flag), BillingRecord
+- DocumentTemplate, DocumentVersion, DocumentSendLog
+- Payment, PaymentMatch
+- Ticket, TicketMessage
+- LineMessage
+- RoomResident
+- Conversation, ConversationMessage
+- BillingFieldMapping
+- AuditLog
+
+2) Service Modules (src/services)
+- analytics.ts: Dashboard summary
+- audit.ts: logAudit for audit trail
+- billing.ts: ensureMonth/floor/room, list/patch records, close month
+- billingMonths.ts: months listing summary
+- conversations.ts: list/add messages
+- documents.ts: list/generate/send document versions
+- line.ts: binding + approval
+- payments.ts: list/create/import, match/revert with idempotency
+- penalty.ts: penalty automation (idempotent)
+- placeholders.ts: mapping placeholders for templates
+- templates.ts: list/get/rename/upload/replace
+- tickets.ts: list/create/update status/add message
+- guardRails.ts: ensure immutable deletions (explicit checks)
+
+3) API Routes (app/api/**)
+- Health, System/Health, Logs/Client
+- Billing: records, import, close, months, placeholders
+- Documents: list, generate, send, download
+- Payments: list, create, import, match, revert
+- Templates: list/get/upload/replace/patch
+- Conversations, Tickets, Line bind/approve
+- Analytics summary
+- Export CSV: billing, payments, audit
+
+4) Modification Points (exact)
+- Authentication & Security:
+  - Add session auth (auth/), CSRF (lib/http/csrf.ts), middleware.ts guard
+  - Replace requireAdmin header usage in all API route handlers
+  - Add role enforcement at API boundaries (shared helper)
+- Billing Snapshot:
+  - Prisma: add BillingSnapshot model
+  - documents.ts: on generate versionNo === 1 create snapshot; render from snapshot if exists or month closed
+  - analytics.ts: when month.closed use snapshot aggregates
+- Strict Month Lock:
+  - billing.ts patch/close: already blocks when closed; extend checks across payments.match & documents.generate
+- Financial Completeness:
+  - Prisma: PaymentCredit model
+  - payments.ts: on overpay create credit; auto-apply credits to next billing
+  - audit.ts: include before/after diffs on financial updates
+- Room/Resident Timeline:
+  - prisma middleware + services: enforce max 2 occupants and exactly 1 PRIMARY
+  - services to write MoveHistory on check-in/out changes
+- LINE Full Integration:
+  - Add /api/line/webhook with HMAC verify and handlers
+  - services/linePush.ts for outbound push + logging to LineMessage/ConversationMessage
+- Soft Delete Strategy:
+  - Prisma: add deletedAt, deletedBy to Resident, Contract, DocumentTemplate, DocumentVersion, Payment
+  - Prisma middleware: default filter deletedAt = null on reads; forbid hard delete
+  - audit.ts: write delete audit entries
+- Backup & Encryption:
+  - scripts/backup.ts: AES-256-GCM encrypt; scripts/restore.ts: decrypt + integrity check
+  - health: expose backup.encrypted + status; fail if >24h
+- Tests:
+  - Add integration test files for listed scenarios under tests/
+
+5) Circular Dependency Check
+- New modules under src/lib/auth and src/lib/http keep dependencies unidirectional:
+  - api routes -> services -> prisma
+  - auth/csrf used by routes only; services remain unaware
+
+========================================
+SECTION 1 — REAL AUTHENTICATION SYSTEM
+========================================
+Summary
+- Implement lightweight session with JWT (no new heavy deps):
+  - Sign with HS256 via Node crypto (AUTH_SECRET)
+  - Store in HttpOnly, Secure, SameSite=Lax cookie "session"
+  - CSRF: double-submit token via "csrf" cookie + X-CSRF-Token header
+  - middleware.ts: verify session for all /api/** (allowlist: /api/health, /api/system/health, /api/logs/client)
+  - api/auth/login, api/auth/logout endpoints
+  - Role mapping: SUPER_ADMIN, FINANCE, STAFF, VIEWER; enforce in API boundary helper
+
+Files (new/updated)
+- src/lib/auth/session.ts (sign/verify JWT, get user from cookie)
+- src/lib/http/csrf.ts (issue/verify CSRF token)
+- middleware.ts (protect API routes)
+- app/api/auth/login/route.ts, logout/route.ts
+- src/lib/auth/roles.ts (extend to new roles)
+- Update all app/api/** routes to:
+  - read user from session
+  - call enforceRoleBoundary(requiredRoles: Role[])
+  - keep existing service-layer requireRole for defense-in-depth
+
+Environment
+- AUTH_SECRET (required)
+
+========================================
+SECTION 2 — BILLING SNAPSHOT (IMMUTABLE)
+========================================
+Schema (add)
+model BillingSnapshot {
+  id             String        @id @default(cuid())
+  roomNumber     String
+  billingMonthId String
+  billingMonth   BillingMonth  @relation(fields: [billingMonthId], references: [id])
+  snapshotData   Json
+  createdAt      DateTime      @default(now())
+  createdBy      String
+  @@unique([roomNumber, billingMonthId])
+}
+
+Behavior
+- On first document generation (versionNo === 1):
+  - Compose snapshot from BillingRecord + derived fields and write BillingSnapshot
+  - Audit: DOCUMENT_GENERATE_SNAPSHOT with actor + payload
+- Regenerate documents do NOT modify snapshot
+- Rendering:
+  - If snapshot exists (or month.closed), use snapshotData instead of live BillingRecord
+- Analytics:
+  - If month.closed, compute from snapshot only
+
+Code Changes
+- services/documents.ts:
+  - When generating v1, upsert BillingSnapshot if not exists
+  - Use snapshotData to render if exists or if month.closed
+- services/analytics.ts:
+  - Use BillingSnapshot for closed months
+
+========================================
+SECTION 3 — STRICT MONTH LOCK
+========================================
+- billing.ts.patchBillingRecords: already rejects if closed
+- payments.ts.matchPayment:
+  - Deny matching if target billing record's month.closed === true
+- documents.ts.generateDocument:
+  - Deny generation if month.closed === true
+- DomainError codes:
+  - BILLING_MONTH_LOCKED (status 409)
+
+========================================
+SECTION 4 — FINANCIAL COMPLETENESS
+========================================
+Schema (add)
+model PaymentCredit {
+  id             String   @id @default(cuid())
+  residentId     String
+  resident       Resident @relation(fields: [residentId], references: [id])
+  amount         Decimal  @db.Decimal(12,2)
+  createdAt      DateTime @default(now())
+  sourcePaymentId String
+  sourcePayment  Payment  @relation(fields: [sourcePaymentId], references: [id])
+}
+
+Behavior
+- Overpay:
+  - Create PaymentCredit for resident equal to overpay amount
+- Auto-apply:
+  - On new month or during match, if resident has credit, apply to current billing first (create PaymentMatch entries to represent applied credit) then consume credit (update remaining)
+- Partial payment:
+  - Continue supported; outstanding = billed - matched
+- AuditLog:
+  - PAYMENT_CREDIT_CREATE, PAYMENT_CREDIT_APPLY with before/after amounts
+
+Code Changes
+- payments.ts:
+  - After computing sums, if existingPaymentSum + amount > payment.amount → allocate overpay into PaymentCredit
+  - Utility to fetch resident from billingRecord.roomNumber via latest active RoomResident
+- billing.ts / monthly processes:
+  - When listing analytics or closing month, compute with matches + credits
+
+========================================
+SECTION 5 — ROOM & RESIDENT TIMELINE
+========================================
+Enforcement
+- Prisma middleware / service layer:
+  - Max 2 active RoomResident per room
+  - Exactly 1 PRIMARY active per room
+- MoveHistory:
+  - On check-in (activate resident in room) → add MoveHistory {type: "CHECK_IN"}
+  - On check-out (deactivate) → MoveHistory {type: "CHECK_OUT"}
+- Tests: occupancy violation cases
+
+========================================
+SECTION 6 — FULL LINE INTEGRATION
+========================================
+New
+- app/api/line/webhook/route.ts:
+  - Verify HMAC SHA256 signature with LINE_CHANNEL_SECRET over raw body (x-line-signature)
+  - Handle events: follow/unfollow/message
+    · follow: create Conversation if missing
+    · unfollow: mark Conversation as inactive (metadata)
+    · message: create Conversation if not exists, store ConversationMessage + LineMessage
+  - Respond 200 quickly; errors via logger
+- src/services/linePush.ts:
+  - pushMessage(residentId, text): call LINE Messaging API with channel token, log send status to LineMessage
+
+Env
+- LINE_CHANNEL_SECRET, LINE_CHANNEL_TOKEN
+
+========================================
+SECTION 7 — SOFT DELETE STRATEGY
+========================================
+Schema (add fields)
+- Resident, Contract, DocumentTemplate, DocumentVersion, Payment:
+  - deletedAt DateTime?
+  - deletedBy String?
+
+Middleware
+- Prisma $use:
+  - On find queries for these models, inject deletedAt = null by default
+  - On delete actions, throw DomainError('SOFT_DELETE_ONLY') unless a system bypass flag is set
+  - For soft delete: update deletedAt/deletedBy instead
+- Audit:
+  - AUDIT_DELETE_SOFT with before snapshot
+
+========================================
+SECTION 8 — BACKUP & ENCRYPTION HARDENING
+========================================
+scripts/backup.ts
+- Encrypt dump with AES-256-GCM using BACKUP_KEY (32-byte base64)
+- Write .sql.enc + .tag metadata
+
+scripts/restore.ts
+- Decrypt/verify with BACKUP_KEY and restore via psql
+- Integrity check (GCM auth tag)
+
+Health (/api/health)
+- Report backup: { status: 'fresh'|'stale'|'missing', encrypted: boolean }
+- Fail (status: degraded) if stale/missing
+
+Env
+- BACKUP_KEY (base64 32 bytes)
+
+========================================
+SECTION 9 — TEST COVERAGE EXPANSION
+========================================
+Add tests:
+- tests/integration/monthClose.test.ts
+- tests/integration/snapshotImmutability.test.ts
+- tests/integration/creditCarryForward.test.ts
+- tests/integration/paymentOverpay.test.ts
+- tests/integration/lineWebhookVerify.test.ts
+- tests/integration/occupancyViolation.test.ts
+
+========================================
+SECTION 10 — UPDATED PRISMA SCHEMA (PATCH)
+========================================
+// Add models and fields (illustrative patch)
+// 1) BillingSnapshot (new)
+model BillingSnapshot {
+  id             String        @id @default(cuid())
+  roomNumber     String
+  billingMonthId String
+  billingMonth   BillingMonth  @relation(fields: [billingMonthId], references: [id])
+  snapshotData   Json
+  createdAt      DateTime      @default(now())
+  createdBy      String
+  @@unique([roomNumber, billingMonthId])
+}
+
+// 2) PaymentCredit (new)
+model PaymentCredit {
+  id              String   @id @default(cuid())
+  residentId      String
+  resident        Resident @relation(fields: [residentId], references: [id])
+  amount          Decimal  @db.Decimal(12,2)
+  createdAt       DateTime @default(now())
+  sourcePaymentId String
+  sourcePayment   Payment  @relation(fields: [sourcePaymentId], references: [id])
+}
+
+// 3) Soft delete fields
+// Resident, Contract, DocumentTemplate, DocumentVersion, Payment
+// Add to each:
+//   deletedAt DateTime?
+//   deletedBy String?
+
+========================================
+MIGRATION INSTRUCTIONS
+========================================
+1) Create branch: blueprint/feb-2026
+2) Commit current snapshot
+3) Apply schema changes in prisma/schema.prisma
+4) npx prisma migrate dev -n "blueprint_feb_2026"
+5) Implement middleware for soft delete and auth enforcement
+6) Update services/documents.ts, payments.ts, analytics.ts for snapshot/credit/locks
+7) Add /api/line/webhook and linePush service
+8) Update backup/restore scripts for AES-256-GCM
+9) Update /api/health to report backup encryption + fail on stale
+10) Run: npm run typecheck && npm run build && npm run test
+
+========================================
+MODIFIED FILES (planned)
+========================================
+- prisma/schema.prisma (add models/fields)
+- src/lib/db.ts (middleware soft-delete + month lock check extension)
+- src/lib/http/error-handler.ts (new error codes)
+- src/lib/auth/roles.ts (add SUPER_ADMIN/FINANCE/STAFF/VIEWER)
+- src/services/documents.ts (snapshot + lock)
+- src/services/payments.ts (credit + lock + audit diffs)
+- src/services/analytics.ts (closed month uses snapshot)
+- app/api/** (remove header auth; enforce session + role boundary)
+- scripts/backup.ts, scripts/restore.ts (encryption)
+- app/api/health/route.ts (backup encryption status)
+
+========================================
+NEW FILES (planned)
+========================================
+- middleware.ts
+- src/lib/auth/session.ts
+- src/lib/http/csrf.ts
+- app/api/auth/login/route.ts
+- app/api/auth/logout/route.ts
+- app/api/line/webhook/route.ts
+- src/services/linePush.ts
+- tests/integration/*.test.ts (as listed)
+
+========================================
+SECURITY CHECKLIST
+========================================
+- Session cookie: HttpOnly, Secure, SameSite=Lax, short TTL + rotation
+- JWT signed with AUTH_SECRET; no PII in token
+- CSRF double-submit token for all mutating requests
+- Strict RBAC at API and service
+- Rate limiting retained
+- Idempotency guards retained for financial ops
+- LINE webhook HMAC verification
+- Backup AES-256-GCM encryption with rotation key management
+
+========================================
+PRODUCTION DEPLOYMENT STEPS
+========================================
+1) Set env: AUTH_SECRET, BACKUP_KEY, LINE_CHANNEL_SECRET, LINE_CHANNEL_TOKEN
+2) Apply migrations; run prisma generate
+3) Deploy app; verify /api/health (db, backup.encrypted, status)
+4) Run backup; validate restore with integrity check
+5) Create initial SUPER_ADMIN user; set roles
+6) Run full test suite; perform smoke tests for billing/payments/documents/LINE
+

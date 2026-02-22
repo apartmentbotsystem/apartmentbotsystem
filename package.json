@@ -1,0 +1,54 @@
+{
+  "name": "apartment-erp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "typecheck": "prisma generate && tsc -p tsconfig.json --noEmit",
+    "test": "npm run test:unit && npm run test:integration && npm run test:services && npm run test:te && npm run test:delivery",
+    "test:unit": "tsx tests/penaltyEngine.test.ts",
+    "test:integration": "tsx tests/runPenaltyEngine.test.ts",
+    "test:services": "tsx tests/services.test.ts",
+    "test:te": "tsx tests/template-engine-phase-b.test.ts",
+    "test:docx": "tsx tests/docx.test.ts",
+    "test:delivery": "tsx tests/delivery-phase-c.test.ts",
+    "seed": "tsx prisma/seed.ts",
+    "db:backup": "tsx scripts/backup.ts",
+    "db:restore": "tsx scripts/restore.ts",
+    "postinstall": "prisma generate",
+    "prisma:studio": "prisma studio",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:generate": "prisma generate"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "engines": {
+    "node": ">=18.18"
+  },
+  "dependencies": {
+    "@line/bot-sdk": "^7.5.3",
+    "@prisma/client": "5.22.0",
+    "@prisma/engines": "^5.22.0",
+    "@supabase/ssr": "^0.8.0",
+    "date-fns": "^3.6.0",
+    "docxtemplater": "^3.44.0",
+    "next": "^14.2.10",
+    "pizzip": "^3.1.7",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "xlsx": "^0.18.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.2.45",
+    "@types/react-dom": "^18.2.18",
+    "prisma": "5.22.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.6.3"
+  }
+}

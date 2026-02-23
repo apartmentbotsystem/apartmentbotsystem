@@ -49,9 +49,6 @@ export async function middleware(req: NextRequest) {
 
     const isLoginPath = pathname === '/login' || pathname === '/login/'
     if (isLoginPath) {
-      const hasError = req.nextUrl.searchParams.get('error') === '1'
-      if (hasError) return NextResponse.next()
-      if (user) return NextResponse.redirect(new URL('/dashboard', req.url))
       return NextResponse.next()
     }
 

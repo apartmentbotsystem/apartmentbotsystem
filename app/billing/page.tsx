@@ -71,7 +71,7 @@ function readCell(row: BillingRow, header: (typeof REQUIRED_BILLING_HEADERS)[num
 export default async function BillingPage({
   searchParams
 }: {
-  searchParams?: { floor?: string }
+  searchParams?: { floor?: string; year?: string; month?: string }
 }) {
   let isOwner = false
   try {
@@ -88,7 +88,10 @@ export default async function BillingPage({
     orderBy: [{ year: 'desc' }, { month: 'desc' }]
   })
 
-  const { year, month } = await getActiveMonth()
+  const qpYear = Number(searchParams?.year ?? '')
+  const qpMonth = Number(searchParams?.month ?? '')
+  const useQueryMonth = Number.isFinite(qpYear) && Number.isFinite(qpMonth) && qpYear >= 2000 && qpYear <= 2100 && qpMonth >= 1 && qpMonth <= 12
+  const { year, month } = useQueryMonth ? { year: qpYear, month: qpMonth } : await getActiveMonth()
   const buildingId = await getActiveBuildingId()
   const activeFloorFromContext = await getActiveFloor()
   const floorFromQuery = Number(searchParams?.floor ?? '')

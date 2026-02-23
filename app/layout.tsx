@@ -1,4 +1,4 @@
-﻿import './globals.css'
+import './globals.css'
 import { ReactNode } from 'react'
 import Link from 'next/link'
 import ToastProvider from '@/components/ui/ToastProvider'
@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const { year, month } = await getActiveMonth()
-  const [activeBuildingId, activeFloor, contextOptions, activeVersion] = await Promise.all([
+  const [activeBuildingId, activeFloor, contextOptions, activeVersion, openTickets] = await Promise.all([
     getActiveBuildingId(),
     getActiveFloor(),
     getContextOptions(),
@@ -22,15 +22,14 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       where: { billingMonth: { year, month }, isActive: true },
       orderBy: { versionNo: 'desc' },
       select: { versionNo: true }
-    })
+    }),
+    prisma.ticket.count({ where: { status: { in: ['OPEN', 'IN_PROGRESS'] } } })
   ])
 
   const monthOptions = contextOptions.monthOptions.length > 0
     ? contextOptions.monthOptions
     : [{ year, month }]
 
-  const consumption = new Date(year, month - 2, 1)
-  const consumptionYm = `${consumption.getFullYear()}-${String(consumption.getMonth() + 1).padStart(2, '0')}`
   return (
     <html lang="th" suppressHydrationWarning>
       <body className="erp-bg-page erp-text-main">
@@ -71,12 +70,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                       floorOptions={contextOptions.floorOptions}
                       onSetContext={setActiveContext}
                     />
-                    <span className="chip">เวอร์ชันที่ใช้งาน: v{activeVersion?.versionNo ?? 1}</span>
                     <GlobalCommandK />
-                    <button type="button" className="chip" aria-label="การแจ้งเตือน">
-                      แจ้งเตือน
-                    </button>
-                    <div className="text-[10px] opacity-70 text-right">รอบใช้หน่วย: {consumptionYm}</div>
+                    <Link href="/tickets" className="chip" aria-label="การแจ้งเตือน">
+                      แจ้งเตือน{openTickets > 0 ? ` (${openTickets})` : ''}
+                    </Link>
                   </div>
                   <div className="flex items-center gap-2">
                     <ThemeToggle />

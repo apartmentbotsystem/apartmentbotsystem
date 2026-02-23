@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 import { useState } from 'react'
 import LoadingButton from '@/components/ui/LoadingButton'
 import { useToast } from '@/components/ui/ToastProvider'
@@ -138,7 +138,12 @@ export default function BillingUploadPage() {
       })
       const json = await res.json()
       setResult(json)
-      if ((json as { ok?: boolean }).ok) showSuccess('Billing import completed')
+      if ((json as { ok?: boolean }).ok) {
+        showSuccess('Billing import completed')
+        setTimeout(() => {
+          window.location.href = `/billing?year=${year}&month=${month}`
+        }, 300)
+      }
       else showError((json as { error?: string }).error ?? 'Import failed')
     } finally {
       setLoading(false)

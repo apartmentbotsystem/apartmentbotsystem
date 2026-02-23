@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 type MonthOption = {
   year: number
@@ -37,8 +37,6 @@ export default function TopContextForm(props: Props) {
 
   return (
     <form action={onSetContext} className="flex flex-wrap items-center gap-2 text-xs">
-      <span className="chip">บริบท</span>
-
       <select name="year" defaultValue={String(activeYear)} className="border erp-border rounded px-2 py-1" onChange={(e) => autoSubmit(e.currentTarget)}>
         {years.map((y) => (<option key={y} value={String(y)}>{y}</option>))}
       </select>

@@ -9,6 +9,7 @@ import { prisma } from '@/lib/db'
 import { setActiveContext } from './context-actions'
 import TopContextForm from './top-context-form'
 import GlobalCommandK from '@/components/ui/GlobalCommandK'
+import ContextFilters from '@/components/ui/ContextFilters'
 
 export const dynamic = 'force-dynamic'
 
@@ -64,21 +65,16 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                       <span className="hidden md:inline text-xs opacity-70">{year}-{String(month).padStart(2, '0')}</span>
                     </div>
                     <div className="hidden md:flex items-center gap-2">
-                      <details className="relative">
-                        <summary className="chip cursor-pointer select-none">Filters</summary>
-                        <div className="absolute right-0 mt-2 erp-card p-2 min-w-[420px] shadow-lg">
-                          <TopContextForm
-                            activeYear={year}
-                            activeMonth={month}
-                            activeBuildingId={activeBuildingId ?? ''}
-                            activeFloor={activeFloor}
-                            monthOptions={monthOptions}
-                            buildingOptions={contextOptions.buildingOptions}
-                            floorOptions={contextOptions.floorOptions}
-                            onSetContext={setActiveContext}
-                          />
-                        </div>
-                      </details>
+                      <ContextFilters
+                        activeYear={year}
+                        activeMonth={month}
+                        activeBuildingId={activeBuildingId ?? ''}
+                        activeFloor={activeFloor}
+                        monthOptions={monthOptions}
+                        buildingOptions={contextOptions.buildingOptions}
+                        floorOptions={contextOptions.floorOptions}
+                        onSetContext={setActiveContext}
+                      />
                       <GlobalCommandK />
                       <Link href="/tickets" className="chip" aria-label="การแจ้งเตือน">
                         แจ้งเตือน{openTickets > 0 ? ` (${openTickets})` : ''}

@@ -1,13 +1,13 @@
 import { prisma } from '@/lib/db'
 import { logAudit } from '@/services/audit'
 import { sendWithDeliveryLog } from '@/services/lineDelivery'
-import { getLineAccessToken } from '@/lib/config/env'
+import { getLineAccessTokenPreferDb } from '@/lib/config/env'
 import { DomainError } from '@/domain/errors'
 
 async function getLineProfile(userId: string): Promise<string | null> {
   let token = ''
   try {
-    token = getLineAccessToken()
+    token = await getLineAccessTokenPreferDb()
   } catch {
     return null
   }

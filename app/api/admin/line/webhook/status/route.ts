@@ -1,15 +1,12 @@
 import { NextResponse } from 'next/server'
 import { requireSession, enforceRoleBoundary } from '@/lib/auth/require-session'
 import { handleApiError } from '@/lib/http/error-handler'
-import { getLineAccessToken } from '@/lib/config/env'
+import { getLineAccessTokenPreferDb, getExpectedWebhookEndpoint } from '@/lib/config/env'
 
 export const runtime = 'nodejs'
 
 function expectedEndpoint(): string | null {
-  const site = process.env['SITE_URL'] || process.env['PUBLIC_BASE_URL'] || process.env['NEXTAUTH_URL'] || ''
-  if (!site) return null
-  const u = site.endsWith('/') ? site.slice(0, -1) : site
-  return `${u}/api/line/webhook`
+  return getExpectedWebhookEndpoint()
 }
 
 async function fetchWebhookInfo(token: string) {
@@ -30,7 +27,7 @@ export async function GET(req: Request) {
     let tokenOk = true
     let token = ''
     try {
-      token = getLineAccessToken()
+      token = await getLineAccessTokenPreferDb()
     } catch {
       tokenOk = false
     }
@@ -64,7 +61,7 @@ export async function POST(req: Request) {
   try {
     const user = await requireSession(req)
     enforceRoleBoundary(user, ['OWNER', 'ADMIN', 'STAFF'])
-    const token = getLineAccessToken()
+    const token = await getLineAccessTokenPreferDb()
     const res = await fetch('https://api.line.me/v2/bot/channel/webhook/test', {
       method: 'POST',
       headers: {
@@ -81,4 +78,3 @@ export async function POST(req: Request) {
     return NextResponse.json(http.body, { status: http.status })
   }
 }
-

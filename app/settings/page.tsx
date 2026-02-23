@@ -1,6 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/db'
 import LineWebhookStatus from './LineWebhookStatus'
+import EnvStatus from './EnvStatus'
 
 const GENERAL_KEY = 'settings:general'
 const ENV_KEY = 'settings:environment'
@@ -90,6 +91,7 @@ export default async function SettingsPage() {
           <input name="runHour" type="number" min={0} max={23} placeholder="runHour" defaultValue={String(env.runHour ?? 2)} className="border erp-border rounded px-2 py-1" />
           <button type="submit" className="px-3 py-1 border erp-border rounded w-fit">บันทึกค่าสภาพแวดล้อม</button>
         </form>
+        <EnvStatus />
       </section>
 
       <section className="border erp-border rounded p-3 space-y-2">

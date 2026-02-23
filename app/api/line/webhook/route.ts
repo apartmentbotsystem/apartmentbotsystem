@@ -6,7 +6,7 @@ import { ensureIdempotent } from '@/lib/http/idempotency'
 import { setState, getState, clearState } from '@/services/lineConversation.service'
 import { createRegistrationRequest } from '@/services/registration.service'
 import { logger } from '@/lib/logging/file-logger'
-import { getLineAccessToken } from '@/lib/config/env'
+import { getLineAccessTokenPreferDb, getLineSecretPreferDb } from '@/lib/config/env'
 
 export const runtime = 'nodejs'
 
@@ -25,7 +25,7 @@ type WebhookBody = {
 async function replyText(replyToken: string, text: string) {
   let token = ''
   try {
-    token = getLineAccessToken()
+    token = await getLineAccessTokenPreferDb()
   } catch {
     return
   }
@@ -48,8 +48,13 @@ async function replyText(replyToken: string, text: string) {
   }
 }
 
-function verifySignature(buf: Buffer, signature: string | null) {
-  const secret = process.env['LINE_CHANNEL_SECRET'] ?? ''
+async function verifySignature(buf: Buffer, signature: string | null) {
+  let secret = ''
+  try {
+    secret = await getLineSecretPreferDb()
+  } catch {
+    secret = ''
+  }
   if (!secret || !signature) return false
   const digest = createHmac('sha256', secret).update(buf).digest('base64')
   return digest === signature
@@ -57,11 +62,9 @@ function verifySignature(buf: Buffer, signature: string | null) {
 
 export async function POST(req: Request) {
   try {
-    const { getServerConfig } = await import('@/lib/config/env')
-    getServerConfig()
     const sig = req.headers.get('x-line-signature')
     const buf = Buffer.from(await req.arrayBuffer())
-    if (!verifySignature(buf, sig)) {
+    if (!(await verifySignature(buf, sig))) {
       return NextResponse.json({ ok: true })
     }
     const body = JSON.parse(buf.toString('utf8')) as WebhookBody

@@ -44,7 +44,7 @@ export async function getBackupFreshness(): Promise<'fresh' | 'stale' | 'missing
 }
 
 export async function getLogDirectorySizeBytes(): Promise<number> {
-  const LOG_DIR = process.env['LOG_DIR'] ?? path.resolve(process.cwd(), 'logs')
+  const LOG_DIR = process.env['LOG_DIR'] ?? path.join(os.tmpdir(), 'apartment-erp-logs')
   async function walk(dir: string): Promise<number> {
     try {
       const entries = await fs.readdir(dir, { withFileTypes: true })

@@ -1,8 +1,9 @@
-﻿import { NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { createSession, setSessionCookie } from '@/lib/auth/session'
 import { ensureCsrfCookie } from '@/lib/http/csrf'
 import { verifyPassword } from '@/lib/auth/password'
+import { logger } from '@/lib/logging/file-logger'
 
 function safeNextPath(input: string | null | undefined): string {
   const v = String(input ?? '').trim()
@@ -157,39 +158,47 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const form = await req.formData()
-  const email = String(form.get('email') ?? '').trim().toLowerCase()
-  const password = String(form.get('password') ?? '')
-  const nextPath = safeNextPath(String(form.get('next') ?? ''))
+  try {
+    const form = await req.formData()
+    const email = String(form.get('email') ?? '').trim().toLowerCase()
+    const password = String(form.get('password') ?? '')
+    const nextPath = safeNextPath(String(form.get('next') ?? ''))
 
-  if (!email || !password) {
-    return NextResponse.redirect(new URL(`/login?error=1&next=${encodeURIComponent(nextPath)}`, req.url))
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { email },
-    select: {
-      id: true,
-      passwordHash: true,
-      sessionVersion: true,
-      userRoles: { include: { role: { select: { code: true } } } }
+    if (!email || !password) {
+      return NextResponse.redirect(new URL(`/login?error=1&next=${encodeURIComponent(nextPath)}`, req.url))
     }
-  })
 
-  if (!user || !verifyPassword(password, user.passwordHash)) {
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        passwordHash: true,
+        sessionVersion: true,
+        userRoles: { include: { role: { select: { code: true } } } }
+      }
+    })
+
+    if (!user || !verifyPassword(password, user.passwordHash)) {
+      return NextResponse.redirect(new URL(`/login?error=1&next=${encodeURIComponent(nextPath)}`, req.url))
+    }
+
+    const roleCodes = user.userRoles.map((ur) => ur.role.code)
+    const role = roleCodes.includes('OWNER') || roleCodes.includes('SUPER_ADMIN')
+      ? 'OWNER'
+      : roleCodes.includes('ADMIN') || roleCodes.includes('MANAGER') || roleCodes.includes('FINANCE') || roleCodes.includes('ACCOUNTANT')
+        ? 'ADMIN'
+        : 'STAFF'
+
+    const token = await createSession(user.id, role, user.sessionVersion ?? 0)
+    await setSessionCookie(token)
+    await ensureCsrfCookie()
+
+    return NextResponse.redirect(new URL(nextPath, req.url))
+  } catch (err) {
+    const url = new URL(req.url)
+    const nextPath = safeNextPath(url.searchParams.get('next'))
+    const message = err instanceof Error ? err.message : String(err)
+    await logger.error('LOGIN_FAILED', { message })
     return NextResponse.redirect(new URL(`/login?error=1&next=${encodeURIComponent(nextPath)}`, req.url))
   }
-
-  const roleCodes = user.userRoles.map((ur) => ur.role.code)
-  const role = roleCodes.includes('OWNER') || roleCodes.includes('SUPER_ADMIN')
-    ? 'OWNER'
-    : roleCodes.includes('ADMIN') || roleCodes.includes('MANAGER') || roleCodes.includes('FINANCE') || roleCodes.includes('ACCOUNTANT')
-      ? 'ADMIN'
-      : 'STAFF'
-
-  const token = await createSession(user.id, role, user.sessionVersion ?? 0)
-  await setSessionCookie(token)
-  await ensureCsrfCookie()
-
-  return NextResponse.redirect(new URL(nextPath, req.url))
 }

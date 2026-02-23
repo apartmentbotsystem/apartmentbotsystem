@@ -1,14 +1,20 @@
 import { promises as fs } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 
 type Level = 'info' | 'warn' | 'error'
 
-const LOG_DIR = process.env['LOG_DIR'] ?? path.resolve(process.cwd(), 'logs')
+const DEFAULT_DIR = path.join(os.tmpdir(), 'apartment-erp-logs')
+const LOG_DIR = process.env['LOG_DIR'] ?? DEFAULT_DIR
 const LOG_FILE = path.join(LOG_DIR, 'app.log')
 const MAX_BYTES = 10 * 1024 * 1024
 
 async function ensureDir(): Promise<void> {
-  await fs.mkdir(LOG_DIR, { recursive: true })
+  try {
+    await fs.mkdir(LOG_DIR, { recursive: true })
+  } catch {
+    // ignore logging failures on read-only FS
+  }
 }
 
 async function rotateIfNeeded(): Promise<void> {
@@ -33,9 +39,13 @@ function formatLine(level: Level, message: string, meta?: Record<string, unknown
 }
 
 async function write(line: string): Promise<void> {
-  await ensureDir()
-  await rotateIfNeeded()
-  await fs.appendFile(LOG_FILE, line, { encoding: 'utf8' })
+  try {
+    await ensureDir()
+    await rotateIfNeeded()
+    await fs.appendFile(LOG_FILE, line, { encoding: 'utf8' })
+  } catch {
+    // swallow logging errors in serverless environments
+  }
 }
 
 export const logger = {
@@ -49,4 +59,3 @@ export const logger = {
     await write(formatLine('error', message, meta))
   }
 }
-

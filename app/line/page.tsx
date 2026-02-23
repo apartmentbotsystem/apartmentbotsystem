@@ -1,6 +1,6 @@
 ﻿﻿import { prisma } from '@/lib/db'
 import Link from 'next/link'
-import ChatSendForm from '@/app/line/send-form'
+import ChatPanel from '@/app/line/ChatPanel'
 import CreateTicketButton from './create-ticket-button'
 import { getActiveMonth } from '@/lib/context'
 
@@ -19,11 +19,17 @@ export default async function LinePage({ searchParams }: { searchParams: { id?: 
   })
 
   const currentId = searchParams.id ?? inbox[0]?.id ?? ''
-  const current = currentId
+  const currentRaw = currentId
     ? await prisma.conversation.findUnique({
         where: { id: currentId },
         include: { messages: { orderBy: { createdAt: 'asc' } }, room: true, resident: true }
       })
+    : null
+  const current = currentRaw
+    ? {
+        ...currentRaw,
+        messages: currentRaw.messages.map((m) => ({ ...m, createdAt: m.createdAt.toISOString() }))
+      }
     : null
 
   let replyDisabled = false
@@ -86,22 +92,16 @@ export default async function LinePage({ searchParams }: { searchParams: { id?: 
             แชต {current?.room?.number ? <span className="ml-2 chip">ห้อง {current.room.number}</span> : null}
             <span className="ml-2 chip">บิล {year}-{String(month).padStart(2, '0')}</span>
           </div>
-          <div className="flex-1 overflow-auto p-3 space-y-2">
-            {current?.messages.map((m) => (
-              <div key={m.id} className={`max-w-[70%] px-3 py-2 rounded border erp-border text-sm ${m.sender === 'ADMIN' ? 'ml-auto bg-[var(--bg-page)]' : 'mr-auto bg-[var(--bg-page)]'}`}>
-                <div>{m.text}</div>
-                <div className="text-[10px] opacity-60 mt-1">{m.createdAt.toISOString()}</div>
-              </div>
-            ))}
-            {!current && <div className="text-sm opacity-70 p-3">เลือกบทสนทนาจากแถบด้านซ้าย</div>}
-          </div>
-          {current && (
-            <div className="border-t erp-border p-2">
-              <ChatSendForm
-                conversationId={current.id}
-                disabled={replyDisabled}
-                disabledReason={replyDisabled ? 'ปิดการตอบกลับ: เคสทิกเก็ตถูกปิดแล้ว' : ''}
-              />
+          {current ? (
+            <ChatPanel
+              conversationId={current.id}
+              initialMessages={current.messages as unknown as Array<{ id: string; sender: 'ADMIN' | 'RESIDENT'; text: string; createdAt: string }>}
+              replyDisabled={replyDisabled}
+              disabledReason={replyDisabled ? 'ปิดการตอบกลับ: เคสทิกเก็ตถูกปิดแล้ว' : ''}
+            />
+          ) : (
+            <div className="flex-1 overflow-auto p-3">
+              <div className="text-sm opacity-70 p-3">เลือกบทสนทนาจากแถบด้านซ้าย</div>
             </div>
           )}
         </div>
@@ -136,5 +136,4 @@ export default async function LinePage({ searchParams }: { searchParams: { id?: 
     </div>
   )
 }
-
 

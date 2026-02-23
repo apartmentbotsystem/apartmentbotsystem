@@ -1,14 +1,16 @@
-﻿'use client'
+'use client'
 import { useState } from 'react'
 
 export default function ChatSendForm({
   conversationId,
   disabled = false,
-  disabledReason = ''
+  disabledReason = '',
+  onSent
 }: {
   conversationId: string
   disabled?: boolean
   disabledReason?: string
+  onSent?: (text: string) => void
 }) {
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
@@ -25,7 +27,8 @@ export default function ChatSendForm({
       })
       if (res.ok) {
         setText('')
-        location.reload()
+        if (onSent) onSent(text)
+        else location.reload()
       }
     } finally {
       setBusy(false)

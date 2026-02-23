@@ -11,7 +11,8 @@ import { DomainError } from '@/domain/errors'
 export const runtime = 'nodejs'
 
 const schema = z.object({
-  targetVersionId: z.string()
+  targetVersionId: z.string(),
+  reason: z.string().max(500).optional()
 })
 
 export async function POST(req: Request, { params }: { params: { roomNumber: string; billingMonthId: string } }) {
@@ -19,11 +20,11 @@ export async function POST(req: Request, { params }: { params: { roomNumber: str
     const rl = checkRateLimit(getClientIp(req), `/api/admin/billing/${params.roomNumber}/${params.billingMonthId}/revert:POST`)
     if (!rl.allowed) return NextResponse.json({ error: 'RATE_LIMIT', message: 'Too many requests' }, { status: 429 })
     const user = await requireSession(req)
-    enforceRoleBoundary(user, ['SUPER_ADMIN', 'FINANCE'])
+    enforceRoleBoundary(user, ['OWNER'])
     const body = await req.json()
     const parse = schema.safeParse(body)
     if (!parse.success) return NextResponse.json({ error: 'UNPROCESSABLE', message: 'Invalid body' }, { status: 422 })
-    const { targetVersionId } = parse.data
+    const { targetVersionId, reason } = parse.data
     const target = await prisma.billingVersion.findFirst({
         where: { id: targetVersionId, roomNumber: params.roomNumber, billingMonthId: params.billingMonthId }
       })
@@ -34,7 +35,8 @@ export async function POST(req: Request, { params }: { params: { roomNumber: str
       })
       if (!current) return NextResponse.json({ error: 'CONFLICT', message: 'missing active version' }, { status: 409 })
       const rec = await prisma.billingRecord.findFirst({
-        where: { roomNumber: params.roomNumber, billingMonthId: params.billingMonthId }
+        where: { roomNumber: params.roomNumber, billingMonthId: params.billingMonthId },
+        include: { room: { select: { id: true } } }
       })
       if (!rec) return NextResponse.json({ error: 'NOT_FOUND', message: 'record not found' }, { status: 404 })
       const hasMatchedPayment = await prisma.paymentMatch.findFirst({
@@ -66,6 +68,7 @@ export async function POST(req: Request, { params }: { params: { roomNumber: str
       const snapForCreate: Prisma.InputJsonValue = JSON.parse(JSON.stringify(target.snapshotData))
       const newVersion = await prisma.billingVersion.create({
         data: {
+          roomId: target.roomId ?? rec.room.id,
           roomNumber: updated.roomNumber,
           billingMonthId: updated.billingMonthId,
           versionNo: latestVersionNo + 1,
@@ -89,6 +92,15 @@ export async function POST(req: Request, { params }: { params: { roomNumber: str
           }
         })
       }
+      await prisma.auditLog.create({
+        data: {
+          action: 'BILLING_RESTORE_VERSION',
+          entityType: 'BillingVersion',
+          entityId: newVersion.id,
+          data: { roomNumber: updated.roomNumber, billingMonthId: updated.billingMonthId, revertedFromId: target.id, reason: reason ?? null },
+          billingRecordId: updated.id
+        }
+      })
       const result = { ok: true, versionId: newVersion.id }
     if (result instanceof NextResponse) return result
     return NextResponse.json(result)

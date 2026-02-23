@@ -42,6 +42,10 @@ async function setupMonth(year: number, month: number) {
 }
 
 async function clearAll() {
+  await prisma.deliveryLog.deleteMany({})
+  await prisma.documentSendLog.deleteMany({})
+  await prisma.documentVersion.deleteMany({})
+  await prisma.documentTemplate.deleteMany({})
   await prisma.financialFlag.deleteMany({})
   await prisma.paymentMatch.deleteMany({})
   await prisma.payment.deleteMany({})
@@ -53,7 +57,7 @@ async function clearAll() {
 }
 
 function superAdmin(id = 'admin'): AuthUser {
-  return { id, role: 'SUPER_ADMIN' }
+  return { id, role: 'ADMIN' }
 }
 
 async function main() {

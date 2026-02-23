@@ -5,3 +5,9 @@ node_modules
 prisma/dev.db
 dist
 *.log
+tsconfig.tsbuildinfo
+test-results
+e2e-report
+logs/
+.DS_Store
+.vercel

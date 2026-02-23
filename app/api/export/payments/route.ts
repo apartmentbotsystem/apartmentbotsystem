@@ -14,7 +14,7 @@ export async function GET(req: Request) {
     const rl = checkRateLimit(getClientIp(req), '/api/export/payments:GET')
     if (!rl.allowed) return NextResponse.json({ error: 'RATE_LIMIT', message: 'Too many requests' }, { status: 429 })
     const user = await requireSession(req)
-    enforceRoleBoundary(user, ['SUPER_ADMIN', 'FINANCE'])
+    enforceRoleBoundary(user, ['OWNER', 'ADMIN'])
     const adminId = user.id
     const filename = `payments-export-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.csv`
     await logger.info('payments export requested', { adminId })

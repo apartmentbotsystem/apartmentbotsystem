@@ -1,5 +1,4 @@
 import { prisma } from '@/lib/db'
-import { RegistrationStatus } from '@prisma/client'
 
 type Input = {
   lineUserId: string
@@ -18,7 +17,7 @@ export async function createRegistrationRequest(input: Input) {
         roomNumber,
         residentName,
         phone,
-        status: RegistrationStatus.REJECTED,
+        status: 'REJECTED',
         reason: 'ROOM_NOT_FOUND'
       }
     })
@@ -30,7 +29,7 @@ export async function createRegistrationRequest(input: Input) {
       roomNumber,
       residentName,
       phone,
-      status: RegistrationStatus.PENDING
+      status: 'PENDING'
     }
   })
   return { success: true as const }

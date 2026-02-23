@@ -10,7 +10,7 @@ export async function POST(req: Request) {
     const rl = checkRateLimit(getClientIp(req), '/api/admin/maintenance/run-penalty:POST')
     if (!rl.allowed) return NextResponse.json({ error: 'RATE_LIMIT', message: 'Too many requests' }, { status: 429 })
     const user = await requireSession(req)
-    enforceRoleBoundary(user, ['SUPER_ADMIN'])
+    enforceRoleBoundary(user, ['OWNER'])
     const result = await Penalty.runWithAudit(user, user.id)
     return NextResponse.json({ ok: true, ...result })
   } catch (err) {

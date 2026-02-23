@@ -1,0 +1,506 @@
+รอบนี้ผมจะ “ออกแบบทุกหน้าแบบครบระบบ ERP จริง”
+ยึดตาม Blueprint ของคุณ 100% + Plug & Play + Versioning + Excel-first + LINE + Payment Matching + Audit + Floor-first UX
+
+จะจัดโครงสร้างเป็น:
+
+🧠 โครงสร้าง Navigation ทั้งระบบ
+
+📊 Dashboard
+
+🏢 Room / Occupancy
+
+💰 Billing (Versioned)
+
+📄 Document Engine
+
+💬 LINE Communication
+
+💳 Payment Matching
+
+📈 Analytics
+
+⚙️ Settings (Plug & Play)
+
+🧾 Audit & Logs
+
+🔐 Auth & Role
+
+และอธิบาย UI/UX รายหน้าว่าหน้าตาเป็นยังไง ป้องกันความสับสนยังไง
+
+🌐 โครงสร้างระบบทั้งหมด (Main Navigation)
+
+Sidebar (Action-first, Floor-first)
+
+Dashboard
+Occupancy
+Billing
+Documents
+Payments
+LINE Inbox
+Analytics
+Settings
+Audit Log
+
+Top Bar (Global Context Bar):
+
+Active Billing Month (Dropdown)
+
+Active Billing Version (Badge)
+
+Search ห้อง
+
+Global Search (⌘K)
+
+Notification bell
+
+สำคัญ:
+ทุกหน้าจะมี Context Bar ด้านบนเสมอเพื่อกันสับสนว่า "กำลังดูเดือนอะไร / version ไหน"
+
+1️⃣ DASHBOARD (Control Tower)
+Layout: 3 Layer
+🔵 Section A – Status Overview
+
+Card Grid (Large Clean Modern UI)
+
+Total Rooms
+
+Occupied
+
+Vacant
+
+Maintenance
+
+Active Billing Month
+
+Current Version
+
+Pending Payments
+
+Overdue
+
+🟢 Section B – Floor Map View
+
+8 Floor Tabs (1–8)
+
+เมื่อกด floor → แสดง grid ห้องแบบ:
+
+798/1
+798/2
+798/3
+(เรียง numeric ถูกต้อง ไม่ใช่ 798/10 แทรก)
+
+สีสถานะ:
+
+เขียว = Occupied
+
+เทา = Vacant
+
+เหลือง = Awaiting Payment
+
+แดง = Overdue
+
+น้ำเงิน = Self-use
+
+ม่วง = Maintenance
+
+คลิกห้อง → Slide Over Panel เปิดรายละเอียด
+
+🟣 Section C – Quick Actions
+
+➕ Move In
+
+➖ Move Out
+
+Upload Excel
+
+Generate Documents
+
+Run Overdue Reminder
+
+2️⃣ OCCUPANCY (Move In / Move Out)
+A) Room List View
+
+Table columns:
+
+Floor
+
+Room
+
+Status
+
+Primary Tenant
+
+Resident Count
+
+Contract Start
+
+Contract End
+
+Sorting:
+
+Floor ASC
+
+Room numeric ASC (798/1 → 798/2 → 798/10 ถูกต้อง)
+
+B) Move In Page
+
+Step Wizard UI (3 Step)
+
+Step 1: Select Room
+
+Filter floor
+เลือกห้องว่างเท่านั้น
+
+Step 2: Tenant Info
+
+Primary Tenant (required)
+
+Resident 2 (optional)
+
+LINE ID (optional, self-reg approval flow)
+
+Contract Start
+
+Deposit
+
+Note
+
+Step 3: Confirm
+
+Save → OccupancyHistory record
+
+C) Move Out Page
+
+เลือกห้อง → Confirm move-out date
+→ ปิด occupancy record
+→ เปลี่ยน room status = VACANT
+
+Option:
+
+Generate Final Invoice
+
+3️⃣ BILLING (Excel-first + Versioned)
+Billing Month Page
+
+Top Context Bar:
+
+Billing Month: April 2026
+Active Version: v2
+[ Switch Version ]
+A) Upload Excel
+
+UI:
+Drag & Drop Zone
+
+Mapping preview table:
+
+Excel Column	System Field	Status
+
+ต้อง match 100% ตามที่คุณกำหนด:
+
+เดือน
+ห้อง
+ชื่อบัญชี
+ธนาคาร
+หมายเลขบัญชี
+ค่าเช่า
+น้ำก่อน
+น้ำหลัง
+ใช้น้ำ
+ค่าน้ำต่อหน่วย
+ค่าบริการมิเตอร์น้ำ
+รวมค่าน้ำ
+ไฟก่อน
+ไฟหลัง
+ใช้ไฟ
+ค่าไฟต่อหน่วย
+ค่าบริการมิเตอร์ไฟ
+รวมค่าไฟ
+เฟอร์
+อื่นๆ
+รวมเงิน
+หมายเหตุ
+
+⚠️ ถ้า header ไม่ตรง → เตือน
+
+B) Version System
+
+เมื่อ Upload:
+
+สร้าง BillingMonthVersion ใหม่
+
+Active = true
+Version เก่า → inactive
+
+Owner Only:
+
+View old version
+
+Restore version เป็น Active
+
+UI:
+Version Timeline Sidebar:
+
+v1 – Uploaded 2 Apr
+v2 – Uploaded 5 Apr
+v3 – Uploaded 7 Apr (Active)
+
+C) Billing Table (Excel-like Editable Grid)
+
+Grid UI:
+เหมือน Google Sheet
+
+Sticky Header
+
+Row = 1 room
+
+Sorting:
+Room numeric correct
+
+Editable:
+
+ค่าเช่า
+
+ค่าน้ำ
+
+ค่าไฟ
+
+อื่นๆ
+
+หมายเหตุ
+
+Badge:
+ถ้ามี regenerate หลัง SENT → แสดง ⚠️ Changed After Send
+
+4️⃣ DOCUMENT ENGINE (Invoice System)
+
+Document List Page
+
+Filter:
+
+Billing Month
+
+Version
+
+Floor
+
+Status (Draft / Sent / Paid)
+
+Document Detail
+
+Header:
+Room 798/1
+Billing: April 2026
+Billing Version: v2
+
+Section:
+
+ค่าเช่า (เดือนที่ออกบิล)
+
+ค่าน้ำ (ของเดือนก่อน)
+
+ค่าไฟ (ของเดือนก่อน)
+
+ระบบต้องแสดงชัด:
+
+Billing Month: April 2026
+Water/Electric Usage Period: March 2026
+
+กันสับสน 100%
+
+5️⃣ PAYMENT MATCHING
+
+Upload Bank Statement
+
+System:
+Auto match:
+
+amount
+
+room
+
+ref
+
+Status:
+
+Unmatched
+
+Suggested
+
+Confirmed
+
+UI:
+Left: Transaction list
+Right: Suggested Room match
+
+Click Confirm → Payment record
+
+6️⃣ LINE INBOX
+
+Layout: Split screen
+
+Left:
+Conversation List
+
+Right:
+Chat Window
+
+Top:
+Room Link
+Invoice Link
+
+Admin reply → Logged
+
+Reply Guard:
+
+Closed ticket → disabled
+
+7️⃣ ANALYTICS
+
+Tabs:
+
+Revenue by Month
+
+Occupancy Rate
+
+Overdue Trend
+
+Collection Speed
+
+Graph style:
+Minimal white modern
+Soft shadow cards
+
+8️⃣ SETTINGS (Plug & Play Core)
+
+สำคัญมาก
+
+A) General
+
+Building Name
+
+Address
+
+Bank Account
+
+B) Environment
+
+Database URL
+
+LINE Channel Token
+
+LINE Secret
+
+Cron billingDay
+
+dueDay
+
+overdueDay
+
+runHour
+
+C) Document Templates
+
+Template editor
+
+Preview
+
+D) Number Format
+
+Currency
+
+Decimal
+
+9️⃣ AUDIT LOG
+
+Table:
+
+User
+
+Action
+
+Entity
+
+Old Value
+
+New Value
+
+Timestamp
+
+Filter by:
+
+Billing
+
+Payment
+
+Document
+
+Occupancy
+
+🔟 AUTH & ROLE
+
+Roles:
+
+OWNER
+
+ADMIN
+
+STAFF
+
+Owner:
+
+Restore Version
+
+Environment Settings
+
+🔐 Anti-Confusion System (สำคัญมาก)
+
+ทุกหน้ามี:
+
+Context Banner:
+
+Currently Viewing:
+Billing Month: April 2026
+Billing Version: v2
+
+ถ้าเลือกเดือนแต่ไม่กด search → auto apply
+
+🔵 Visual Style
+
+Theme:
+
+White + Soft gray
+
+Rounded 2xl
+
+Shadow-sm
+
+Font modern
+
+Grid:
+8px spacing
+
+Cards:
+padding 24px
+
+🧠 Final Architecture Alignment
+
+สิ่งนี้ตรงกับ Blueprint คุณ:
+
+Floor-first UX ✔
+
+Excel as Source of Truth ✔
+
+Version reset monthly ✔
+
+LINE Integration ✔
+
+Payment Matching ✔
+
+Self-registration approval ✔
+
+Full Audit ✔
+
+Plug & Play Settings ✔
+
+No silent drift ✔

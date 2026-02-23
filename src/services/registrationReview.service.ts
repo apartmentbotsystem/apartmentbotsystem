@@ -1,5 +1,4 @@
 import { prisma } from '@/lib/db'
-import { RegistrationStatus } from '@prisma/client'
 import { sendLineMessage } from '@/infrastructure/lineGateway'
 import { logAudit } from '@/services/audit'
 
@@ -10,7 +9,7 @@ export async function approveRegistration(id: string) {
   if (!req) {
     throw new Error('NOT_FOUND')
   }
-  if (req.status !== RegistrationStatus.PENDING) {
+  if (req.status !== 'PENDING') {
     throw new Error('INVALID_STATE')
   }
   const existing = await prisma.lineBinding.findUnique({ where: { lineUserId: req.lineUserId } })
@@ -21,7 +20,7 @@ export async function approveRegistration(id: string) {
   if (!room) {
     await prisma.registrationRequest.update({
       where: { id },
-      data: { status: RegistrationStatus.REJECTED, reason: 'Room not found' }
+      data: { status: 'REJECTED', reason: 'Room not found' }
     })
     await sendLineMessage({ roomNumber: req.lineUserId, text: 'การลงทะเบียนของคุณถูกปฏิเสธ: Room not found' })
     await logAudit({ actorId: 'system', action: 'REGISTRATION_REJECT', entity: 'RegistrationRequest', entityId: id, metadata: { reason: 'Room not found' } })
@@ -31,7 +30,7 @@ export async function approveRegistration(id: string) {
   if (count >= CAPACITY_PER_ROOM) {
     await prisma.registrationRequest.update({
       where: { id },
-      data: { status: RegistrationStatus.REJECTED, reason: 'Room full' }
+      data: { status: 'REJECTED', reason: 'Room full' }
     })
     await sendLineMessage({ roomNumber: req.lineUserId, text: 'การลงทะเบียนของคุณถูกปฏิเสธ: Room full' })
     await logAudit({ actorId: 'system', action: 'REGISTRATION_REJECT', entity: 'RegistrationRequest', entityId: id, metadata: { reason: 'Room full' } })
@@ -46,7 +45,7 @@ export async function approveRegistration(id: string) {
     }),
     prisma.registrationRequest.update({
       where: { id },
-      data: { status: RegistrationStatus.APPROVED }
+      data: { status: 'APPROVED' }
     })
   ])
   await sendLineMessage({ roomNumber: req.lineUserId, text: 'การลงทะเบียนของคุณได้รับอนุมัติแล้ว' })
@@ -59,12 +58,12 @@ export async function rejectRegistration(id: string, reason: string) {
   if (!req) {
     throw new Error('NOT_FOUND')
   }
-  if (req.status !== RegistrationStatus.PENDING) {
+  if (req.status !== 'PENDING') {
     throw new Error('INVALID_STATE')
   }
   await prisma.registrationRequest.update({
     where: { id },
-    data: { status: RegistrationStatus.REJECTED, reason }
+    data: { status: 'REJECTED', reason }
   })
   await sendLineMessage({ roomNumber: req.lineUserId, text: `การลงทะเบียนของคุณถูกปฏิเสธ: ${reason}` })
   await logAudit({ actorId: 'system', action: 'REGISTRATION_REJECT', entity: 'RegistrationRequest', entityId: id, metadata: { reason } })

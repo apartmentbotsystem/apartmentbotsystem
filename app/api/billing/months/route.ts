@@ -10,7 +10,7 @@ export async function GET(req: Request) {
     const rl = checkRateLimit(getClientIp(req), '/api/billing/months:GET')
     if (!rl.allowed) return NextResponse.json({ error: 'RATE_LIMIT', message: 'Too many requests' }, { status: 429 })
     const user = await requireSession(req)
-    enforceRoleBoundary(user, ['SUPER_ADMIN', 'FINANCE', 'MANAGER', 'VIEWER'])
+    enforceRoleBoundary(user, ['OWNER', 'ADMIN', 'STAFF'])
     const items = await BillingMonths.listMonthsSummary(user)
     return NextResponse.json({ items })
   } catch (err) {

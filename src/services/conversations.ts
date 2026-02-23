@@ -5,7 +5,7 @@ import { requireRole } from '@/lib/auth/roles'
 
 export async function listConversations(user: AuthUser | null) {
   assertAuthenticated(user)
-  requireRole(user.role, ['ADMIN', 'STAFF', 'MANAGER'])
+  requireRole(user.role, ['OWNER', 'ADMIN', 'STAFF'])
   return prisma.conversation.findMany({
     orderBy: { createdAt: 'desc' },
     include: { room: true, resident: true }
@@ -14,7 +14,7 @@ export async function listConversations(user: AuthUser | null) {
 
 export async function listMessages(user: AuthUser | null, conversationId: string) {
   assertAuthenticated(user)
-  requireRole(user.role, ['ADMIN', 'STAFF', 'MANAGER'])
+  requireRole(user.role, ['OWNER', 'ADMIN', 'STAFF'])
   return prisma.conversationMessage.findMany({
     where: { conversationId },
     orderBy: { createdAt: 'asc' }
@@ -23,7 +23,7 @@ export async function listMessages(user: AuthUser | null, conversationId: string
 
 export async function addMessage(user: AuthUser | null, conversationId: string, text: string, sender: 'ADMIN' | 'RESIDENT') {
   assertAuthenticated(user)
-  requireRole(user.role, ['ADMIN', 'STAFF', 'MANAGER'])
+  requireRole(user.role, ['OWNER', 'ADMIN', 'STAFF'])
   const m = await prisma.conversationMessage.create({
     data: { conversationId, text, sender }
   })

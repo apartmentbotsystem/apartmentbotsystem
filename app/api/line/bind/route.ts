@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     const rl = checkRateLimit(getClientIp(req), '/api/line/bind:POST')
     if (!rl.allowed) return NextResponse.json({ error: 'RATE_LIMIT', message: 'Too many requests' }, { status: 429 })
     const user = await requireSession(req)
-    enforceRoleBoundary(user, ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'STAFF'])
+    enforceRoleBoundary(user, ['OWNER', 'ADMIN', 'STAFF'])
     const body = await req.json()
     const parse = schema.safeParse(body)
     if (!parse.success) return NextResponse.json({ error: 'UNPROCESSABLE', message: 'Invalid body' }, { status: 422 })

@@ -11,7 +11,7 @@ export async function GET(req: Request) {
     const rl = checkRateLimit(getClientIp(req), '/api/admin/conversations:GET')
     if (!rl.allowed) return NextResponse.json({ error: 'RATE_LIMIT', message: 'Too many requests' }, { status: 429 })
     const user = await requireSession(req)
-    enforceRoleBoundary(user, ['ADMIN', 'MANAGER', 'STAFF', 'SUPER_ADMIN'])
+    enforceRoleBoundary(user, ['ADMIN', 'STAFF', 'OWNER'])
     const items = await AdminConversations.listInbox()
     return NextResponse.json({ items })
   } catch (err) {

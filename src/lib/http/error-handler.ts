@@ -35,5 +35,8 @@ export function handleApiError(error: unknown): ApiErrorPayload {
 }
 
 function isPrismaKnownRequestError(err: unknown): err is Prisma.PrismaClientKnownRequestError {
-  return !!err && typeof err === 'object' && 'code' in (err as any) && (err as any).clientVersion !== undefined
+  if (!err || typeof err !== 'object') return false
+  if (!('code' in err) || !('clientVersion' in err)) return false
+  const rec = err as Record<string, unknown>
+  return typeof rec.code === 'string' && rec.clientVersion !== undefined
 }

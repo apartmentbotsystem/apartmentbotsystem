@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/db'
 import { Prisma, DocumentStatus } from '@prisma/client'
 import { DomainError } from '@/domain/errors'
-import crypto from 'node:crypto'
+import { hashBillingSnapshot } from '@/domain/document/integrity'
 
 type Input = {
   roomId: string
@@ -16,27 +16,6 @@ type Output = {
   version: number
   isZeroAmount: boolean
   billingChanged: boolean
-}
-
-function stableStringify(obj: unknown): string {
-  const seen = new WeakSet()
-  const helper = (x: unknown): unknown => {
-    if (x === null || typeof x !== 'object') return x
-    if (seen.has(x as object)) return '[Circular]'
-    seen.add(x as object)
-    if (Array.isArray(x)) return (x as unknown[]).map(helper)
-    const o = x as Record<string, unknown>
-    const keys = Object.keys(o).sort()
-    const out: Record<string, unknown> = {}
-    for (const k of keys) out[k] = helper(o[k])
-    return out
-  }
-  return JSON.stringify(helper(obj))
-}
-
-function hashObject(obj: unknown): string {
-  const s = stableStringify(obj)
-  return crypto.createHash('sha256').update(s).digest('hex')
 }
 
 function toNumber(v: unknown): number {
@@ -69,6 +48,8 @@ export async function generateDocumentVersion(input: Input): Promise<Output> {
   // fetch the host template again for FK ref
   const docTpl = await prisma.documentTemplate.findUnique({ where: { code: `TE:${templateGroupId}` } })
   if (!docTpl) throw new DomainError('HOST_TEMPLATE_MISSING', 'Host template missing', 500)
+  const room = await prisma.room.findUnique({ where: { number: roomId }, select: { id: true } })
+  if (!room) throw new DomainError('NOT_FOUND', 'Room not found', 404)
   const billingVersion = await prisma.billingVersion.findFirst({
     where: { roomNumber: roomId, billingMonthId: billingMonth, isActive: true }
   })
@@ -96,11 +77,7 @@ export async function generateDocumentVersion(input: Input): Promise<Output> {
     ? (latest.snapshotJson as Record<string, unknown>)['billingHash'] as string ?? null
     : null
 
-  const currentBillingSnapshot = {
-    snapshotData: billingVersion.snapshotData,
-    totalAmount: Number(billingVersion.totalAmount)
-  }
-  const currentHash = hashObject(currentBillingSnapshot)
+  const currentHash = hashBillingSnapshot(billingVersion.snapshotData, Number(billingVersion.totalAmount))
   const billingChanged = latestHash ? latestHash !== currentHash : false
 
   const version = latest ? latest.versionNo + 1 : 1
@@ -108,8 +85,10 @@ export async function generateDocumentVersion(input: Input): Promise<Output> {
   const created = await prisma.documentVersion.create({
     data: {
       templateId: docTpl.id,
+      roomId: billingVersion.roomId ?? room.id,
       roomNumber: roomId,
       billingMonthId: billingMonth,
+      billingVersionId: billingVersion.id,
       versionNo: version,
       status: DocumentStatus.READY,
       file: Buffer.from([]),
@@ -121,7 +100,8 @@ export async function generateDocumentVersion(input: Input): Promise<Output> {
         templateGroupId,
         templateVersion: activeTemplate.version,
         billingHash: currentHash,
-        billingChanged
+        billingChanged,
+        billingVersionId: billingVersion.id
       },
       isZeroAmount
     }

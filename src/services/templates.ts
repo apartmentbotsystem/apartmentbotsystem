@@ -6,7 +6,7 @@ import { logAudit } from '@/services/audit'
 
 export async function listTemplates(user: AuthUser | null) {
   assertAuthenticated(user)
-  requireRole(user.role, ['ADMIN', 'MANAGER'])
+  requireRole(user.role, ['OWNER', 'ADMIN'])
   return prisma.documentTemplate.findMany({
     orderBy: { createdAt: 'desc' },
     select: { id: true, code: true, name: true, createdAt: true }
@@ -15,7 +15,7 @@ export async function listTemplates(user: AuthUser | null) {
 
 export async function getTemplateMeta(user: AuthUser | null, id: string) {
   assertAuthenticated(user)
-  requireRole(user.role, ['ADMIN', 'MANAGER'])
+  requireRole(user.role, ['OWNER', 'ADMIN'])
   return prisma.documentTemplate.findFirst({
     where: { id },
     select: { id: true, code: true, name: true, createdAt: true }
@@ -24,7 +24,7 @@ export async function getTemplateMeta(user: AuthUser | null, id: string) {
 
 export async function renameTemplate(user: AuthUser | null, id: string, name: string) {
   assertAuthenticated(user)
-  requireRole(user.role, ['ADMIN', 'MANAGER'])
+  requireRole(user.role, ['OWNER', 'ADMIN'])
   await prisma.documentTemplate.updateMany({ where: { id }, data: { name } })
   await logAudit({ actorId: user.id, action: 'TEMPLATE_RENAME', entity: 'DocumentTemplate', entityId: id, metadata: { name } })
   return { id, name }
@@ -32,7 +32,7 @@ export async function renameTemplate(user: AuthUser | null, id: string, name: st
 
 export async function uploadOrUpdateTemplate(user: AuthUser | null, code: string, name: string, content: Buffer, actorId: string) {
   assertAuthenticated(user)
-  requireRole(user.role, ['ADMIN', 'MANAGER'])
+  requireRole(user.role, ['OWNER', 'ADMIN'])
   const template = await prisma.documentTemplate.upsert({
     where: { code },
     update: { name, content },
@@ -44,7 +44,7 @@ export async function uploadOrUpdateTemplate(user: AuthUser | null, code: string
 
 export async function replaceTemplate(user: AuthUser | null, id: string, content: Buffer, actorId: string) {
   assertAuthenticated(user)
-  requireRole(user.role, ['ADMIN', 'MANAGER'])
+  requireRole(user.role, ['OWNER', 'ADMIN'])
   await prisma.documentTemplate.updateMany({
     where: { id },
     data: { content }

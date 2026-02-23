@@ -17,7 +17,7 @@ export async function GET(req: Request) {
     const rl = checkRateLimit(getClientIp(req), '/api/documents:GET')
     if (!rl.allowed) return NextResponse.json({ error: 'RATE_LIMIT', message: 'Too many requests' }, { status: 429 })
     const user = await requireSession(req)
-    enforceRoleBoundary(user, ['ADMIN', 'MANAGER', 'ACCOUNTANT', 'STAFF', 'SUPER_ADMIN', 'FINANCE'])
+    enforceRoleBoundary(user, ['ADMIN', 'STAFF', 'OWNER'])
     const url = new URL(req.url)
     const parse = qp.safeParse({
       year: url.searchParams.get('year') ?? undefined,

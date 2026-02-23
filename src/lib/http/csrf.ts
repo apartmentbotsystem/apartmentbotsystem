@@ -10,7 +10,8 @@ export async function ensureCsrfCookie(): Promise<string> {
   const existing = jar.get('csrf')?.value
   if (existing) return existing
   const token = generateToken()
-  jar.set('csrf', token, { httpOnly: false, secure: true, sameSite: 'lax', path: '/' })
+  const secure = process.env.NODE_ENV === 'production' && process.env.E2E_ALLOW_ANY_USER !== 'true'
+  jar.set('csrf', token, { httpOnly: false, secure, sameSite: 'lax', path: '/' })
   return token
 }
 

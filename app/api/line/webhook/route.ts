@@ -6,12 +6,29 @@ import { ensureIdempotent } from '@/lib/http/idempotency'
 import { setState, getState, clearState } from '@/services/lineConversation.service'
 import { createRegistrationRequest } from '@/services/registration.service'
 import { logger } from '@/lib/logging/file-logger'
+import { getLineAccessToken } from '@/lib/config/env'
 
 export const runtime = 'nodejs'
 
+type WebhookEvent = {
+  webhookEventId?: string
+  replyToken?: string
+  type?: string
+  source?: { userId?: string }
+  message?: { type?: string; text?: string; id?: string | number }
+}
+
+type WebhookBody = {
+  events?: WebhookEvent[]
+}
+
 async function replyText(replyToken: string, text: string) {
-  const token = process.env['LINE_CHANNEL_TOKEN'] ?? ''
-  if (!token) return
+  let token = ''
+  try {
+    token = getLineAccessToken()
+  } catch {
+    return
+  }
   try {
     await fetch('https://api.line.me/v2/bot/message/reply', {
     method: 'POST',
@@ -47,7 +64,7 @@ export async function POST(req: Request) {
     if (!verifySignature(buf, sig)) {
       return NextResponse.json({ ok: true })
     }
-    const body = JSON.parse(buf.toString('utf8')) as { events?: any[] }
+    const body = JSON.parse(buf.toString('utf8')) as WebhookBody
     const events = Array.isArray(body.events) ? body.events : []
     for (const event of events) {
       const eventId: string = event?.webhookEventId ?? ''

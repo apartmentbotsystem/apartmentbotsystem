@@ -1,10 +1,11 @@
 import { prisma } from '@/lib/db'
+import { Prisma } from '@prisma/client'
 import { sendLineMessage } from '@/infrastructure/lineGateway'
 
 export async function sendWithDeliveryLog(conversationId: string, text: string): Promise<{ status: 'sent' | 'failed' }> {
   let lineUserId: string = ''
   let messageId: string = ''
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const conv = await tx.conversation.findUnique({ where: { id: conversationId } })
     if (!conv || !conv.lineUserId) {
       throw new Error('NO_LINE_USER')

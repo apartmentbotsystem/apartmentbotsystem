@@ -1,19 +1,16 @@
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="th">
-      <body>
-        <nav style={{ padding: 12, borderBottom: '1px solid #ddd' }}>
-          <a href="/admin/billing/upload" style={{ marginRight: 12 }}>อัปโหลดบิล</a>
-          <a href="/admin/billing/2026/2" style={{ marginRight: 12 }}>แก้ไขบิล</a>
-          <a href="/admin/templates" style={{ marginRight: 12 }}>เทมเพลต</a>
-          <a href="/admin/documents/generate" style={{ marginRight: 12 }}>สร้างเอกสาร</a>
-          <a href="/admin/payments" style={{ marginRight: 12 }}>ชำระเงิน</a>
-          <a href="/admin/tickets" style={{ marginRight: 12 }}>ทิกเก็ต</a>
-          <a href="/admin/messages" style={{ marginRight: 12 }}>ข้อความ</a>
-          <a href="/admin/analytics" style={{ marginRight: 12 }}>ภาพรวม</a>
-        </nav>
-        <div style={{ padding: 16 }}>{children}</div>
-      </body>
-    </html>
+    <>
+      <nav className="erp-card p-3 mb-3 text-sm flex flex-wrap gap-2">
+        <a className="erp-nav-link" href="/admin/billing/upload">Upload Billing</a>
+        <a className="erp-nav-link" href="/billing">Billing</a>
+        <a className="erp-nav-link" href="/admin/templates">Templates</a>
+        <a className="erp-nav-link" href="/admin/documents/generate">Generate Docs</a>
+        <a className="erp-nav-link" href="/payments">Payments</a>
+        <a className="erp-nav-link" href="/admin/tickets">Tickets</a>
+        <a className="erp-nav-link" href="/analytics">Analytics</a>
+      </nav>
+      <div className="px-1">{children}</div>
+    </>
   )
 }

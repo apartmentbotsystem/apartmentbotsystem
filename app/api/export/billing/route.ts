@@ -14,7 +14,7 @@ export async function GET(req: Request) {
     const rl = checkRateLimit(getClientIp(req), '/api/export/billing:GET')
     if (!rl.allowed) return NextResponse.json({ error: 'RATE_LIMIT', message: 'Too many requests' }, { status: 429 })
     const user = await requireSession(req)
-    enforceRoleBoundary(user, ['SUPER_ADMIN', 'FINANCE'])
+    enforceRoleBoundary(user, ['OWNER', 'ADMIN'])
     const adminId = user.id
     const url = new URL(req.url)
     const year = url.searchParams.get('year')

@@ -11,7 +11,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     const rl = checkRateLimit(getClientIp(_req), '/api/documents/[id]/download:GET')
     if (!rl.allowed) return NextResponse.json({ error: 'RATE_LIMIT', message: 'Too many requests' }, { status: 429 })
     const user = await requireSession(_req)
-    enforceRoleBoundary(user, ['SUPER_ADMIN', 'FINANCE', 'MANAGER', 'VIEWER', 'STAFF'])
+    enforceRoleBoundary(user, ['OWNER', 'ADMIN', 'STAFF'])
     const buf = await Documents.getDocumentFile(user, params.id)
     if (!buf) return NextResponse.json({ error: 'not found' }, { status: 404 })
     return new NextResponse(buf, {

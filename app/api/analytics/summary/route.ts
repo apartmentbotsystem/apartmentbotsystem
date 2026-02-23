@@ -9,7 +9,7 @@ export async function GET(req: Request) {
     const rl = checkRateLimit(getClientIp(req), '/api/analytics/summary:GET')
     if (!rl.allowed) return NextResponse.json({ error: 'RATE_LIMIT', message: 'Too many requests' }, { status: 429 })
     const user = await requireSession(req)
-    enforceRoleBoundary(user, ['ADMIN', 'MANAGER', 'SUPER_ADMIN'])
+    enforceRoleBoundary(user, ['ADMIN', 'OWNER'])
     const summary = await Analytics.getSummary(user)
     return NextResponse.json(summary)
   } catch (err) {

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { generateDocumentVersion } from '@/domain/document/versioning'
 
@@ -41,7 +42,7 @@ async function createActiveBillingVersion(roomNumber: string, billingMonthId: st
       roomNumber,
       billingMonthId,
       versionNo: 1,
-      snapshotData: snap as any,
+      snapshotData: snap as Prisma.InputJsonValue,
       totalAmount: total,
       isActive: true,
       createdBy: 'test'

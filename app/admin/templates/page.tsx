@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db'
-import type { TemplateGroup } from '@prisma/client'
+import { TemplateType, type TemplateGroup } from '@prisma/client'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
@@ -12,7 +12,8 @@ export default async function TemplateGroupsPage() {
       <form action={async (formData: FormData) => {
         'use server'
         const name = String(formData.get('name') ?? '')
-        const type = String(formData.get('type') ?? 'BILLING') as any
+        const typeRaw = String(formData.get('type') ?? 'BILLING')
+        const type = Object.values(TemplateType).includes(typeRaw as TemplateType) ? (typeRaw as TemplateType) : TemplateType.BILLING
         if (!name) return
         await prisma.templateGroup.create({ data: { name, type } })
       }}>

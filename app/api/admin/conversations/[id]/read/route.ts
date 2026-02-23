@@ -11,7 +11,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const rl = checkRateLimit(getClientIp(req), '/api/admin/conversations/[id]/read:POST')
     if (!rl.allowed) return NextResponse.json({ error: 'RATE_LIMIT', message: 'Too many requests' }, { status: 429 })
     const user = await requireSession(req)
-    enforceRoleBoundary(user, ['ADMIN', 'MANAGER', 'STAFF', 'SUPER_ADMIN'])
+    enforceRoleBoundary(user, ['ADMIN', 'STAFF', 'OWNER'])
     const r = await AdminConversations.markRead(params.id, user.id)
     return NextResponse.json(r)
   } catch (err) {

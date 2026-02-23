@@ -5,7 +5,7 @@ import { requireRole } from '@/lib/auth/roles'
 
 export async function listPlaceholders(user: AuthUser | null, year: number, month: number, roomNumber?: string) {
   assertAuthenticated(user)
-  requireRole(user.role, ['ADMIN', 'MANAGER', 'ACCOUNTANT', 'STAFF'])
+  requireRole(user.role, ['OWNER', 'ADMIN', 'STAFF'])
   const bm = await prisma.billingMonth.findFirst({ where: { year, month } })
   if (!bm) return []
   const records = await prisma.billingRecord.findMany({

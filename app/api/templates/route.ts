@@ -9,7 +9,7 @@ export async function GET(req: Request) {
     const rl = checkRateLimit(getClientIp(req), '/api/templates:GET')
     if (!rl.allowed) return NextResponse.json({ error: 'RATE_LIMIT', message: 'Too many requests' }, { status: 429 })
     const user = await requireSession(req)
-    enforceRoleBoundary(user, ['ADMIN', 'MANAGER', 'SUPER_ADMIN'])
+    enforceRoleBoundary(user, ['ADMIN', 'OWNER'])
     const items = await Templates.listTemplates(user)
     return NextResponse.json({ items })
   } catch (err) {

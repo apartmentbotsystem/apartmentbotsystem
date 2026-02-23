@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     const rl = checkRateLimit(getClientIp(req), '/api/payments/import:POST')
     if (!rl.allowed) return NextResponse.json({ error: 'RATE_LIMIT', message: 'Too many requests' }, { status: 429 })
     const user = await requireSession(req)
-    enforceRoleBoundary(user, ['SUPER_ADMIN', 'FINANCE'])
+    enforceRoleBoundary(user, ['OWNER', 'ADMIN'])
     const form = await req.formData()
     const file = form.get('file')
     const meta = metaSchema.safeParse({

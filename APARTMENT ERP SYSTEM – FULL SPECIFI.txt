@@ -1,0 +1,457 @@
+APARTMENT ERP SYSTEM – FULL SPECIFICATION
+
+(ROOM-CENTRIC | EXCEL → WORD → MAIL MERGE → LINE INTEGRATED)
+
+SECTION 1 — CORE PHILOSOPHY ของระบบ
+
+ระบบนี้ถูกสร้างขึ้นเพื่อแทนกระบวนการทำงานเดิมของเจ้าของอพาร์ตเมนต์ที่ใช้:
+
+Excel สำหรับกรอกข้อมูลค่าเช่า ค่าน้ำ ค่าไฟ
+
+Word สำหรับทำ Template ใบแจ้งหนี้ / ประกาศ
+
+Mail Merge สำหรับรวมข้อมูลจาก Excel เข้า Template
+
+พิมพ์กระดาษแจก
+
+ใช้ LINE OA คุยกับลูกค้า
+
+เปิดหลายไฟล์เพื่อดูข้อมูล
+
+ระบบใหม่นี้ต้อง:
+
+รวมศูนย์ทุกอย่างไว้บนเว็บเดียว
+
+ไม่เปลี่ยน logic เดิมของการทำงาน
+
+เพิ่มความปลอดภัย
+
+เพิ่ม version control
+
+เพิ่ม audit
+
+เพิ่มความสามารถดูย้อนหลัง
+
+เพิ่มความสามารถเชื่อมกับ LINE
+
+หมุนรอบ “เลขห้อง”
+
+ทุก entity ในระบบต้องผูกกับ Room เป็นศูนย์กลาง
+
+ROOM คือ Root Entity
+
+SECTION 2 — DOMAIN MODEL หลักของระบบ
+
+ROOM
+│
+├── Room Type
+├── Current Tenant
+├── Tenant History
+├── Billing (per month, per version)
+├── Document (generated from billing version)
+├── Payment
+├── LINE Conversation
+├── Ticket
+├── Usage (water / electric historical graph)
+└── Activity Log
+
+SECTION 3 — BILLING SYSTEM (แทน Excel)
+3.1 Upload Flow
+
+เมนู: Billing
+
+เมื่อ Upload Excel:
+
+ระบบต้องถาม:
+
+“เดือนที่ออกบิลคืออะไร?”
+
+ค่านี้ = BillingMonth
+
+ตัวอย่าง:
+เลือก เมษายน 2026
+
+ระบบจะตั้ง:
+
+BillingMonth = 2026-04
+
+ConsumptionMonth จะไม่ถูกกรอกโดย user
+แต่ระบบจะคำนวณ:
+
+ConsumptionMonth = 2026-03
+
+3.2 Excel Schema (ต้องตรง 100%)
+
+หัวตารางต้องมีคอลัมน์ต่อไปนี้ครบถ้วนทุกช่อง:
+
+เดือน
+ห้อง
+ชื่อบัญชี
+ธนาคาร
+หมายเลขบัญชี
+ค่าเช่า
+น้ำก่อน
+น้ำหลัง
+ใช้น้ำ
+ค่าน้ำต่อหน่วย
+ค่าบริการมิเตอร์น้ำ
+รวมค่าน้ำ
+ไฟก่อน
+ไฟหลัง
+ใช้ไฟ
+ค่าไฟต่อหน่วย
+ค่าบริการมิเตอร์ไฟ
+รวมค่าไฟ
+เฟอร์
+อื่นๆ
+รวมเงิน
+หมายเหตุ
+
+ไม่มีการ rename
+ไม่มีการลดคอลัมน์
+ไม่มีการรวมคอลัมน์
+ใช้ครบทุกช่อง
+
+3.3 Auto Calculation Rules
+
+ใช้น้ำ = น้ำหลัง - น้ำก่อน
+ใช้ไฟ = ไฟหลัง - ไฟก่อน
+
+รวมค่าน้ำ = (ใช้น้ำ × ค่าน้ำต่อหน่วย) + ค่าบริการมิเตอร์น้ำ
+รวมค่าไฟ = (ใช้ไฟ × ค่าไฟต่อหน่วย) + ค่าบริการมิเตอร์ไฟ
+
+รวมเงิน =
+ค่าเช่า + รวมค่าน้ำ + รวมค่าไฟ + เฟอร์ + อื่นๆ
+
+แต่ทุกค่าอนุญาต override ได้
+
+3.4 Billing Version System
+
+BillingPeriod (เดือนเดียวกัน)
+
+สามารถมีหลาย BillingVersion
+
+Upload ครั้งแรก:
+→ สร้าง v1 (Active)
+
+Upload ครั้งที่สอง:
+→ สร้าง v2
+→ v1 inactive
+→ v2 active
+
+Upload ครั้งที่สาม:
+→ v3
+→ v2 inactive
+→ v3 active
+
+3.5 Restore Version
+
+Owner สามารถ Restore version เก่าได้
+
+เมื่อ Restore v1 ขณะที่ active คือ v3:
+
+ระบบจะ:
+
+Clone v1 → สร้าง v4
+
+v4 = Active
+
+v3 = Inactive
+
+v4.isRestoredFrom = v1
+
+ไม่ flip flag ตรง ๆ
+
+3.6 Version Visibility
+
+Admin:
+
+เห็นเฉพาะ Active Version
+
+Owner:
+
+เห็น dropdown version ทั้งหมด
+
+สามารถ Restore ได้
+
+มีช่องใส่เหตุผล Restore (ไม่บังคับ)
+
+3.7 Version Change Warning
+
+ไม่ต้องเตือนเมื่อ upload แล้วค่าบางห้องเปลี่ยน
+
+ตามที่คุณเลือก A
+
+SECTION 4 — DOCUMENT SYSTEM (แทน Word + Mail Merge)
+4.1 Template
+
+เมนู: Templates
+
+Rich Text Editor
+
+ทำตารางได้
+
+ใส่ placeholder ได้
+
+Save เป็นหลาย template
+
+แก้ไขได้
+
+ไม่มี Document Settings แยก
+
+Logo/Header/Footer อยู่ใน template
+
+4.2 Generate
+
+เมนู: Documents > Generate
+
+เลือก:
+
+BillingMonth
+
+Template
+
+เลือกหลายห้อง
+
+Generate แล้ว:
+
+สร้าง Document record
+
+ผูกกับ BillingVersionId
+
+ยังไม่ส่ง
+
+4.3 Send
+
+ใน Documents:
+
+เลือกหลายห้อง → Send via LINE
+
+ถ้าเป็น Invoice:
+
+แนบข้อความ:
+
+ยอดรวม
+
+ชื่อบัญชี
+
+เลขบัญชี
+
+Bank info มาจาก Excel ของ BillingVersion นั้น
+
+ไม่มี Bank Settings แยก
+
+SECTION 5 — ROOM SYSTEM (ศูนย์กลาง)
+
+เมนู: Rooms
+
+สามารถเลือก:
+
+ชั้น
+
+ห้อง
+
+ต้องใช้ Natural Sort
+
+798/1
+798/2
+…
+798/10
+
+ไม่ใช้ string sort
+
+5.1 Room Detail Page ต้องมี:
+
+Overview
+
+Room Type
+
+สถานะ
+
+Current Tenant
+
+Contract dates
+
+Billing History
+
+รายเดือนย้อนหลัง
+
+Payment History
+
+Documents History
+
+LINE Shortcut
+
+Usage Graph
+
+Water line graph
+
+Electric line graph
+
+เทียบย้อนหลังหลายเดือน
+
+SECTION 6 — MOVE IN / MOVE OUT
+Move Out
+
+ปิด Contract
+
+Archive Tenant
+
+Archive LINE mapping
+
+Room → Vacant
+
+เก็บ history ทั้งหมด
+
+Move In
+
+เลือกห้อง Vacant
+
+กรอก Tenant
+
+ผูก LINE
+
+ตั้งค่าเช่า
+
+Room → Occupied
+
+SECTION 7 — LINE SYSTEM
+
+Layout 3 Pane
+
+ซ้าย:
+
+Chat list
+
+Unread badge
+
+กลาง:
+
+Conversation
+
+Input box
+
+ขวา:
+
+Room number (ใหญ่)
+
+Tenant name
+
+Outstanding balance
+
+Latest invoice
+
+ปุ่ม Send Invoice
+
+ปุ่ม Create Ticket
+
+หน้าตาคล้าย LINE OA / Messenger
+
+SECTION 8 — TICKET SYSTEM
+
+สร้างจากแชทได้
+
+Status:
+
+Open
+
+In Progress
+
+Closed
+
+Dashboard แสดงจำนวน Open
+
+SECTION 9 — TENANT SYSTEM
+
+ค้นหาได้:
+
+จากชื่อ → รู้ห้อง
+
+จากห้อง → รู้ชื่อ
+
+Tenant Detail แสดง:
+
+ห้องปัจจุบัน
+
+ประวัติห้องเก่า
+
+ประวัติบิล
+
+ประวัติจ่าย
+
+SECTION 10 — DASHBOARD
+
+แสดง:
+
+Billing Total เดือนปัจจุบัน
+
+Collected Total
+
+Outstanding
+
+Occupancy %
+
+Ticket Open
+
+LINE Unread
+
+กราฟ 6 เดือนย้อนหลัง
+
+SECTION 11 — SETTINGS (เฉพาะที่จำเป็นจริง)
+
+General:
+
+ชื่อตึก
+
+ที่อยู่
+
+เบอร์ติดต่อ
+
+LINE:
+
+Channel Token
+
+Channel Secret
+
+System Info (read-only)
+
+ไม่มี Bank Settings
+ไม่มี Document Settings
+ไม่มี Billing Settings
+
+SECTION 12 — CONTEXT CONTROL (กันสับสน)
+
+ทุกหน้าต้องแสดง Context ชัดเจน:
+
+Billing:
+Billing Month: เมษายน 2026
+(Consumption: มีนาคม 2026)
+
+Room:
+Room 3205 — ชั้น 3
+
+Room + Billing:
+Room 3205 — Billing — เมษายน 2026
+
+ไม่มีปุ่ม Apply
+เลือกแล้วโหลดทันที
+
+SECTION 13 — ROLE CONTROL
+
+Owner:
+
+เห็น Billing Versions ทั้งหมด
+
+Restore ได้
+
+เห็น version history
+
+Admin:
+
+เห็นเฉพาะ Active
+
+Generate
+
+Send
+
+แก้ไข Grid

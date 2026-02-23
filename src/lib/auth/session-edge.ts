@@ -1,6 +1,10 @@
 // Edge-safe JWT verification for middleware (no Node crypto, no DB)
 export type EdgeUser = { id: string; role: string } | null
 
+function getAuthSecret(): string | null {
+  return process.env['AUTH_SECRET'] ?? process.env['NEXTAUTH_SECRET'] ?? null
+}
+
 function b64urlToUint8Array(input: string): Uint8Array {
   const pad = input.length % 4 === 0 ? '' : '='.repeat(4 - (input.length % 4))
   const base64 = input.replace(/-/g, '+').replace(/_/g, '/') + pad
@@ -47,7 +51,7 @@ async function verifyHS256Edge(token: string, secret: string): Promise<Record<st
 }
 
 export async function getUserFromRequestEdge(req: Request): Promise<EdgeUser> {
-  const secret = process.env['AUTH_SECRET']
+  const secret = getAuthSecret()
   if (!secret) return null
   const cookie = req.headers.get('cookie') ?? ''
   const m = cookie.match(/(?:^|;\s*)session=([^;]+)/)

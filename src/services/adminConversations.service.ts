@@ -1,10 +1,16 @@
 import { prisma } from '@/lib/db'
 import { logAudit } from '@/services/audit'
 import { sendWithDeliveryLog } from '@/services/lineDelivery'
+import { getLineAccessToken } from '@/lib/config/env'
+import { DomainError } from '@/domain/errors'
 
 async function getLineProfile(userId: string): Promise<string | null> {
-  const token = process.env['LINE_CHANNEL_TOKEN'] ?? ''
-  if (!token) return null
+  let token = ''
+  try {
+    token = getLineAccessToken()
+  } catch {
+    return null
+  }
   try {
     const res = await fetch(`https://api.line.me/v2/bot/profile/${encodeURIComponent(userId)}`, {
       headers: { 'Authorization': `Bearer ${token}` }
@@ -67,6 +73,19 @@ export async function listMessages(conversationId: string) {
 }
 
 export async function sendMessage(conversationId: string, content: string, actorId?: string) {
+  const conv = await prisma.conversation.findUnique({
+    where: { id: conversationId },
+    select: { roomNumber: true }
+  })
+  if (conv?.roomNumber) {
+    const [openCount, closedCount] = await Promise.all([
+      prisma.ticket.count({ where: { roomNumber: conv.roomNumber, status: { in: ['OPEN', 'IN_PROGRESS'] } } }),
+      prisma.ticket.count({ where: { roomNumber: conv.roomNumber, status: 'CLOSED' } })
+    ])
+    if (closedCount > 0 && openCount === 0) {
+      throw new DomainError('TICKET_CLOSED_REPLY_DISABLED', 'Reply disabled for closed ticket context', 409)
+    }
+  }
   const res = await sendWithDeliveryLog(conversationId, content)
   await logAudit({ actorId: actorId ?? 'system', action: 'CONVERSATION_SEND', entity: 'Conversation', entityId: conversationId, metadata: { delivery: res.status } })
   return { ok: true as const, status: res.status }

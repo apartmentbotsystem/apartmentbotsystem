@@ -1,15 +1,16 @@
 import type { Prisma } from '@prisma/client'
+import { Decimal } from '@prisma/client/runtime/library'
 import { toNumberSafe } from '@/lib/decimal'
 import { prisma } from '@/lib/db'
 import type { AuthUser } from '@/lib/auth/types'
 import { assertAuthenticated } from '@/lib/auth/guard'
 import { requireRole } from '@/lib/auth/roles'
 
-type VersionRow = { totalAmount: Prisma.Decimal | number }
+type VersionRow = { totalAmount: Decimal | number }
 
 export async function listMonthsSummary(user: AuthUser | null) {
   assertAuthenticated(user)
-  requireRole(user.role, ['ADMIN', 'ACCOUNTANT', 'MANAGER'])
+  requireRole(user.role, ['OWNER', 'ADMIN', 'STAFF'])
   const months = await prisma.billingMonth.findMany({
     orderBy: [{ year: 'desc' }, { month: 'desc' }],
     include: {}
@@ -25,7 +26,7 @@ export async function listMonthsSummary(user: AuthUser | null) {
         where: { confirmed: true, billingRecord: { billingMonthId: m.id } },
         select: { matchedAmount: true }
       })
-      const totalReceived = matches.reduce((sum: number, p: { matchedAmount: Prisma.Decimal | number }) => sum + toNumberSafe(p.matchedAmount), 0)
+      const totalReceived = matches.reduce((sum: number, p: { matchedAmount: Decimal | number }) => sum + toNumberSafe(p.matchedAmount), 0)
       return {
         id: m.id,
         year: m.year,

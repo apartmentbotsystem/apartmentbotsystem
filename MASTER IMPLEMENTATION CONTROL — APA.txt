@@ -1,0 +1,347 @@
+MASTER IMPLEMENTATION CONTROL — APARTMENT ERP (STRICT MODE)
+
+You are implementing Apartment ERP under CTO architectural control.
+
+You are NOT allowed to:
+
+Change architecture direction
+
+Bypass Prisma types
+
+Cast to any
+
+Disable strict mode
+
+Remove relations to fix errors
+
+Modify schema casually
+
+Drift from Room-centric model
+
+You MUST follow everything below exactly.
+
+0️⃣ CORE PHILOSOPHY (DO NOT BREAK)
+SYSTEM IS ROOM-CENTRIC
+
+Everything connects to Room:
+
+Room
+→ BillingVersion
+→ DocumentVersion
+→ Payment
+→ LINE Conversation
+→ Ticket
+→ AuditLog
+
+Room Detail page is navigation hub.
+
+NO module is standalone.
+
+1️⃣ DATABASE ARCHITECTURE (FINAL PRODUCTION SCHEMA)
+1.1 Room
+model Room {
+  id            String   @id @default(cuid())
+  roomNumber    String   @unique
+  floor         Int
+  status        RoomStatus
+  createdAt     DateTime @default(now())
+
+  billingVersions BillingVersion[]
+  payments        Payment[]
+  documents       DocumentVersion[]
+  tickets         Ticket[]
+}
+
+RoomStatus enum:
+
+VACANT
+
+OCCUPIED
+
+MAINTENANCE
+
+SELF_USE
+
+1.2 BillingMonth
+model BillingMonth {
+  id                String   @id @default(cuid())
+  year              Int
+  month             Int
+  label             String   // "2026-04"
+
+  consumptionYear   Int
+  consumptionMonth  Int
+
+  createdAt         DateTime @default(now())
+
+  versions          BillingVersion[]
+
+  @@unique([year, month])
+}
+
+RULE:
+ConsumptionMonth = BillingMonth - 1
+But store explicitly to prevent confusion.
+
+1.3 BillingVersion (ROOM + MONTH LEVEL)
+model BillingVersion {
+  id              String   @id @default(cuid())
+
+  billingMonthId  String
+  billingMonth    BillingMonth @relation(fields: [billingMonthId], references: [id], onDelete: Cascade)
+
+  roomId          String
+  room            Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  versionNo       Int
+  isActive        Boolean @default(true)
+
+  snapshotData    Json
+  totalAmount     Decimal
+
+  revertedFromId  String?
+  revertedFrom    BillingVersion? @relation("RevertChain", fields: [revertedFromId], references: [id])
+  revertedTo      BillingVersion[] @relation("RevertChain")
+
+  createdAt       DateTime @default(now())
+  createdBy       String
+
+  documents       DocumentVersion[]
+
+  @@unique([billingMonthId, roomId, versionNo])
+  @@index([billingMonthId, roomId, isActive])
+}
+
+RULES:
+
+Only ONE active per room per month
+
+Restore = create new version
+
+Never update old snapshot
+
+1.4 DocumentVersion
+model DocumentVersion {
+  id                String   @id @default(cuid())
+
+  billingVersionId  String
+  billingVersion    BillingVersion @relation(fields: [billingVersionId], references: [id], onDelete: Cascade)
+
+  roomId            String
+  room              Room @relation(fields: [roomId], references: [id])
+
+  templateId        String
+  hash              String
+
+  createdAt         DateTime @default(now())
+}
+
+DO NOT store billingVersionId inside snapshotJson anymore.
+
+1.5 Payment
+model Payment {
+  id        String   @id @default(cuid())
+
+  roomId    String
+  room      Room @relation(fields: [roomId], references: [id])
+
+  amount    Decimal
+  paidAt    DateTime
+
+  matchedBillingVersionId String?
+  matchedBillingVersion   BillingVersion? @relation(fields: [matchedBillingVersionId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+1.6 Ticket
+model Ticket {
+  id        String @id @default(cuid())
+
+  roomId    String
+  room      Room @relation(fields: [roomId], references: [id])
+
+  status    TicketStatus
+  title     String
+  createdAt DateTime @default(now())
+}
+2️⃣ TYPE SAFETY RULES
+
+After schema update:
+
+Run:
+
+npx prisma migrate dev
+npx prisma generate
+npx prisma validate
+npx tsc --noEmit
+
+No error allowed.
+
+If error:
+Fix schema.
+Never cast.
+
+3️⃣ FIX CURRENT ERRORS
+3.1 billingMonth does not exist
+
+Root cause: relation not included.
+
+Correct pattern:
+
+const versions = await prisma.billingVersion.findMany({
+  include: {
+    billingMonth: true,
+    room: true
+  },
+  orderBy: [
+    { billingMonth: { year: 'desc' } },
+    { billingMonth: { month: 'desc' } }
+  ]
+})
+
+Never access relation without include.
+
+3.2 Cannot find module './send-form'
+
+RULE:
+
+All imports use alias:
+
+@/app/line/send-form
+
+No relative import allowed.
+
+Verify file physically exists.
+
+4️⃣ VERSION CONTROL LOGIC
+
+When Upload Excel:
+
+Find BillingMonth
+
+For each room:
+
+Deactivate previous active
+
+Create new versionNo = last + 1
+
+Set isActive = true
+
+When Restore:
+
+Fetch version
+
+Deactivate current active
+
+Create new version:
+
+snapshotData copied
+
+revertedFromId set
+
+versionNo increment
+
+isActive true
+
+Insert AuditLog with reason
+
+Never update old record.
+
+5️⃣ UI CONTEXT SAFETY
+
+Every related page must show:
+
+Billing Month: YYYY-MM
+Consumption Period: YYYY-MM
+
+Pages:
+
+Billing
+
+Document
+
+Room Detail
+
+Dashboard
+
+Analytics
+
+Prevent user confusion.
+
+6️⃣ NATURAL ROOM SORT
+
+Never use string sort.
+
+Use numeric comparator:
+
+798/1
+798/2
+798/10
+
+Correct order only.
+
+7️⃣ DOCUMENT INTEGRITY
+
+When generating document:
+
+Store billingVersionId
+
+Generate hash of snapshot
+
+On verify:
+
+Compare with active BillingVersion
+
+If mismatch → show “Changed After Send” badge.
+
+8️⃣ HARD PRE-COMMIT CHECKLIST
+
+Before finalizing:
+
+npx prisma validate
+npx prisma migrate dev
+npx prisma generate
+npx tsc --noEmit
+npm run build
+npm run lint
+npm run test
+
+All must pass.
+
+9️⃣ DO NOT TOUCH
+
+Outbox system
+
+LINE sender architecture
+
+Strict mode
+
+Domain folder separation
+
+Prisma v5 configuration
+
+🔟 FINAL ACCEPTANCE CRITERIA
+
+System must:
+
+Run without 500 error
+
+No TypeScript errors
+
+Billing versioning works
+
+Restore works
+
+Document links to BillingVersion
+
+Room Detail shows Billing History
+
+LINE create ticket works
+
+Dashboard uses real data
+
+Natural sorting correct
+
+Plug & Play settings preserved
+
+If any condition fails → implementation rejected.

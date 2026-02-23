@@ -24,6 +24,12 @@ const registry: Record<TemplateType, Set<string>> = {
   OTHER: new Set<string>([])
 }
 
+export function getAllowedPlaceholders(templateType: TemplateType): string[] {
+  const allowed = registry[templateType]
+  if (!allowed) return []
+  return [...allowed].sort()
+}
+
 function collectPlaceholders(node: unknown, out: Set<string>) {
   if (node === null || node === undefined) return
   const t = typeof node

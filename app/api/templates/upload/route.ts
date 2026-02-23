@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     const rl = checkRateLimit(getClientIp(req), '/api/templates/upload:POST')
     if (!rl.allowed) return NextResponse.json({ error: 'RATE_LIMIT', message: 'Too many requests' }, { status: 429 })
     const user = await requireSession(req)
-    enforceRoleBoundary(user, ['ADMIN', 'MANAGER', 'SUPER_ADMIN'])
+    enforceRoleBoundary(user, ['ADMIN', 'OWNER'])
     const form = await req.formData()
     const parsedFile = fileSchema.safeParse({ file: form.get('file') })
     if (!parsedFile.success) return NextResponse.json({ error: 'UNPROCESSABLE', message: 'file is required' }, { status: 422 })

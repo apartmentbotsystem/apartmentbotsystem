@@ -18,6 +18,8 @@ model Tenant {
 model User {
   id        String     @id @default(cuid())
   email     String     @unique
+  passwordHash String?
+  sessionVersion Int   @default(0)
   tenantId  String
   tenant    Tenant     @relation(fields: [tenantId], references: [id])
   createdAt DateTime   @default(now())
@@ -51,7 +53,7 @@ enum RoomStatus {
   VACANT
   OCCUPIED
   MAINTENANCE
-  INTERNAL_USE
+  SELF_USE
 }
 
 enum RoomType {
@@ -97,19 +99,32 @@ model Floor {
 }
 
 model Room {
+  id            String            @unique @default(cuid())
   number        String            @id
+  roomNumber    String?           @unique
   floorId       String
   floor         Floor             @relation(fields: [floorId], references: [id])
+  buildingId    String?
+  building      Building?         @relation(fields: [buildingId], references: [id])
+  capacity      Int               @default(2)
   status        RoomStatus        @default(VACANT)
   type          RoomType          @default(NORMAL)
+  createdAt     DateTime          @default(now())
   contracts     Contract[]
   histories     MoveHistory[]
   occupants     RoomResident[]
   billing       BillingRecord[]
+  billingVersions BillingVersion[]
   tickets       Ticket[]
   documents     DocumentVersion[]
   conversations Conversation[]
   tenantId      String?
+}
+
+model Building {
+  id    String @id @default(cuid())
+  name  String @unique
+  rooms Room[]
 }
 
 model Resident {
@@ -164,9 +179,16 @@ model BillingMonth {
   id          String            @id @default(cuid())
   year        Int
   month       Int
+  label       String            @default("")
+  consumptionYear Int           @default(0)
+  consumptionMonth Int          @default(0)
   closed      Boolean           @default(false)
+  locked      Boolean           @default(false)
+  lockedAt    DateTime?
+  lockedBy    String?
   dueDay      Int               @default(7)
   records     BillingRecord[]
+  versions    BillingVersion[]
   docVersions DocumentVersion[]
   tenantId    String?
 
@@ -179,6 +201,10 @@ model BillingRecord {
   room           Room           @relation(fields: [roomNumber], references: [number])
   billingMonthId String
   billingMonth   BillingMonth   @relation(fields: [billingMonthId], references: [id])
+  rent           Decimal        @default(0) @db.Decimal(12, 2)
+  water          Decimal        @default(0) @db.Decimal(12, 2)
+  electric       Decimal        @default(0) @db.Decimal(12, 2)
+  other          Decimal        @default(0) @db.Decimal(12, 2)
   amount         Decimal        @db.Decimal(12, 2)
   adjustments    Decimal        @default(0) @db.Decimal(12, 2)
   note           String?
@@ -198,20 +224,27 @@ model BillingRecord {
 
 model BillingVersion {
   id             String   @id @default(cuid())
+  roomId         String?
   roomNumber     String
+  room           Room     @relation(fields: [roomNumber], references: [number], onDelete: Cascade)
   billingMonthId String
+  billingMonth   BillingMonth @relation(fields: [billingMonthId], references: [id], onDelete: Cascade)
   versionNo      Int
   snapshotData   Json
   totalAmount    Decimal  @db.Decimal(12, 2)
   isActive       Boolean  @default(true)
   revertedFromId String?
+  revertedFrom   BillingVersion? @relation("RevertChain", fields: [revertedFromId], references: [id])
+  revertedTo     BillingVersion[] @relation("RevertChain")
   createdAt      DateTime @default(now())
   createdBy      String
   tenantId       String?
+  documents      DocumentVersion[]
 
   @@unique([roomNumber, billingMonthId, versionNo])
   @@index([roomNumber, billingMonthId])
   @@index([roomNumber, billingMonthId, isActive])
+  @@index([billingMonthId, roomId, isActive])
   @@index([isActive])
 }
 
@@ -240,10 +273,13 @@ model DocumentVersion {
   id              String            @id @default(cuid())
   templateId      String
   template        DocumentTemplate  @relation(fields: [templateId], references: [id])
+  roomId          String?
   roomNumber      String
   room            Room              @relation(fields: [roomNumber], references: [number])
   billingMonthId  String?
   billingMonth    BillingMonth?     @relation(fields: [billingMonthId], references: [id])
+  billingVersionId String?
+  billingVersion   BillingVersion?   @relation(fields: [billingVersionId], references: [id], onDelete: SetNull)
   versionNo       Int
   status          DocumentStatus    @default(DRAFT)
   generatedAt     DateTime          @default(now())
@@ -260,6 +296,7 @@ model DocumentVersion {
 
   @@unique([templateId, roomNumber, billingMonthId, versionNo])
   @@unique([roomNumber, billingMonthId, templateGroupId])
+  @@index([billingVersionId])
 }
 
 model DocumentSendLog {
@@ -299,7 +336,15 @@ model DeliveryLog {
 
 model Payment {
   id         String         @id @default(cuid())
+  roomId     String?
+  paidAt     DateTime?
+  matchedBillingVersionId String?
   amount     Decimal        @db.Decimal(12, 2)
+  method     String?
+  status     String?
+  confidenceScore Decimal?  @db.Decimal(5, 2)
+  confirmedBy String?
+  confirmedAt DateTime?
   bankRef    String?
   occurredAt DateTime
   matched    Boolean        @default(false)
@@ -321,8 +366,10 @@ model PaymentMatch {
 
 model Ticket {
   id         String          @id @default(cuid())
+  roomId     String?
   roomNumber String
   room       Room            @relation(fields: [roomNumber], references: [number])
+  title      String          @default("")
   residentId String?
   resident   Resident?       @relation(fields: [residentId], references: [id])
   status     TicketStatus    @default(OPEN)
@@ -447,6 +494,13 @@ model SystemSnapshot {
   snapshotKey String   @unique
   data        Json
   createdAt   DateTime @default(now())
+}
+
+model SystemSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
 }
 
 enum TemplateType {

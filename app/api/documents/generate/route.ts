@@ -6,6 +6,7 @@ import type { AuthUser } from '@/lib/auth/types'
 import { handleApiError } from '@/lib/http/error-handler'
 import { checkRateLimit, getClientIp } from '@/lib/http/rate-limit'
 import { ensureIdempotent, sha256Hex } from '@/lib/http/idempotency'
+import { logger } from '@/lib/logging/file-logger'
 
 export const runtime = 'nodejs'
 
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
     const rl = checkRateLimit(getClientIp(req), '/api/documents/generate:POST')
     if (!rl.allowed) return NextResponse.json({ error: 'RATE_LIMIT', message: 'Too many requests' }, { status: 429 })
     const user = await requireSession(req)
-    enforceRoleBoundary(user, ['SUPER_ADMIN', 'MANAGER'])
+    enforceRoleBoundary(user, ['OWNER', 'ADMIN'])
     const form = await req.formData()
     const parse = schema.safeParse({
       templateId: form.get('templateId'),
@@ -38,6 +39,7 @@ export async function POST(req: Request) {
     const { reused, result } = await ensureIdempotent('/api/documents/generate', idemKey, payloadHash, async () => {
       return Documents.generateDocument(user, templateId, roomNumber, year, month, force, user.id)
     })
+    await logger.info('documents.generate', { userId: user.id, templateId, roomNumber, year, month, reused })
     return NextResponse.json(result)
   } catch (err) {
     const http = handleApiError(err)

@@ -1,12 +1,17 @@
-import { cookies } from 'next/headers'
+﻿import { cookies } from 'next/headers'
 import crypto from 'crypto'
 import { prisma } from '@/lib/db'
+import type { CanonicalRole } from '@/lib/auth/types'
 
 type JwtPayload = {
   sub: string
   role: string
   sv: number
   exp: number
+}
+
+function getAuthSecret(): string | null {
+  return process.env['AUTH_SECRET'] ?? process.env['NEXTAUTH_SECRET'] ?? null
 }
 
 function b64url(input: Buffer | string): string {
@@ -42,7 +47,7 @@ function verifyHS256(token: string, secret: string): JwtPayload | null {
 }
 
 export async function createSession(userId: string, role: string, sessionVersion: number, maxAgeMinutes = 20): Promise<string> {
-  const secret = process.env['AUTH_SECRET']
+  const secret = getAuthSecret()
   if (!secret) throw new Error('AUTH_SECRET missing')
   const exp = Math.floor(Date.now() / 1000) + maxAgeMinutes * 60
   const token = signHS256({ alg: 'HS256', typ: 'JWT' }, { sub: userId, role, sv: sessionVersion, exp }, secret)
@@ -51,16 +56,18 @@ export async function createSession(userId: string, role: string, sessionVersion
 
 export async function setSessionCookie(token: string): Promise<void> {
   const jar = await cookies()
-  jar.set('session', token, { httpOnly: true, secure: true, sameSite: 'lax', path: '/' })
+  const secure = process.env.NODE_ENV === 'production' && process.env.E2E_ALLOW_ANY_USER !== 'true'
+  jar.set('session', token, { httpOnly: true, secure, sameSite: 'lax', path: '/' })
 }
 
 export async function clearSessionCookie(): Promise<void> {
   const jar = await cookies()
-  jar.set('session', '', { httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 0 })
+  const secure = process.env.NODE_ENV === 'production' && process.env.E2E_ALLOW_ANY_USER !== 'true'
+  jar.set('session', '', { httpOnly: true, secure, sameSite: 'lax', path: '/', maxAge: 0 })
 }
 
 export async function getUserFromRequest(req: Request): Promise<{ id: string; role: string } | null> {
-  const secret = process.env['AUTH_SECRET']
+  const secret = getAuthSecret()
   if (!secret) return null
   const cookie = req.headers.get('cookie') ?? ''
   const m = cookie.match(/(?:^|;\s*)session=([^;]+)/)
@@ -70,7 +77,6 @@ export async function getUserFromRequest(req: Request): Promise<{ id: string; ro
   const token = decodeURIComponent(m[1] ?? '')
   const payload = verifyHS256(token, secret)
   if (!payload) return null
-  // SessionVersion verification with fallback if column missing
   try {
     const rows = await prisma.$queryRaw<{ sessionversion: number }[]>`SELECT "sessionVersion" AS sessionversion FROM "User" WHERE id = ${payload.sub} LIMIT 1`
     const sv = rows[0]?.sessionversion ?? 0
@@ -81,17 +87,31 @@ export async function getUserFromRequest(req: Request): Promise<{ id: string; ro
   return { id: payload.sub, role: payload.role }
 }
 
-export function mapRoleToLegacy(role: string): 'ADMIN' | 'MANAGER' | 'ACCOUNTANT' | 'STAFF' {
+export function mapRoleToCanonical(role: string): CanonicalRole {
   switch (role) {
-    case 'SUPER_ADMIN': return 'ADMIN'
-    case 'FINANCE': return 'ACCOUNTANT'
-    case 'VIEWER': return 'STAFF'
-    default: return (role as any) // legacy roles already
+    case 'OWNER':
+    case 'SUPER_ADMIN':
+      return 'OWNER'
+    case 'STAFF':
+    case 'VIEWER':
+      return 'STAFF'
+    case 'ADMIN':
+    case 'MANAGER':
+    case 'ACCOUNTANT':
+    case 'FINANCE':
+    default:
+      return 'ADMIN'
   }
 }
 
+export function mapRoleToLegacy(role: string): 'ADMIN' | 'MANAGER' | 'ACCOUNTANT' | 'STAFF' {
+  const canonical = mapRoleToCanonical(role)
+  if (canonical === 'STAFF') return 'STAFF'
+  return 'ADMIN'
+}
+
 export function getUserFromRequestSync(req: Request): { id: string; role: string } | null {
-  const secret = process.env['AUTH_SECRET']
+  const secret = getAuthSecret()
   if (!secret) return null
   const cookie = req.headers.get('cookie') ?? ''
   const m = cookie.match(/(?:^|;\s*)session=([^;]+)/)

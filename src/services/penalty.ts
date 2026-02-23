@@ -7,13 +7,13 @@ import { logAudit } from '@/services/audit'
 
 export async function run(user: AuthUser | null) {
   assertAuthenticated(user)
-  requireRole(user.role, ['ADMIN'])
+  requireRole(user.role, ['OWNER', 'ADMIN'])
   return runPenaltyEngine(prisma)
 }
 
 export async function runWithAudit(user: AuthUser | null, actorId: string) {
   assertAuthenticated(user)
-  requireRole(user.role, ['ADMIN'])
+  requireRole(user.role, ['OWNER', 'ADMIN'])
   const result = await runPenaltyEngine(prisma)
   await logAudit({ actorId, action: 'MAINTENANCE_RUN', entity: 'PenaltyEngine', entityId: 'penalty-recalc', metadata: { updated: result.updated } })
   return result

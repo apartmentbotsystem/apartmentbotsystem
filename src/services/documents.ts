@@ -8,10 +8,17 @@ import type { AuthUser } from '@/lib/auth/types'
 import { assertAuthenticated } from '@/lib/auth/guard'
 import { requireRole } from '@/lib/auth/roles'
 import { logAudit } from '@/services/audit'
+import { hashBillingSnapshot } from '@/domain/document/integrity'
+
+function getErrorCode(err: unknown): string | null {
+  if (!err || typeof err !== 'object' || !('code' in err)) return null
+  const code = (err as { code?: unknown }).code
+  return typeof code === 'string' ? code : null
+}
 
 export async function listDocuments(user: AuthUser | null, params: { year?: number; month?: number; roomNumber?: string }) {
   assertAuthenticated(user)
-  requireRole(user.role, ['ADMIN', 'MANAGER', 'ACCOUNTANT', 'STAFF'])
+  requireRole(user.role, ['OWNER', 'ADMIN', 'STAFF'])
   let billingMonthId: string | undefined
   if (typeof params.year === 'number' && typeof params.month === 'number') {
     const bm = await prisma.billingMonth.findFirst({ where: { year: params.year, month: params.month } })
@@ -33,7 +40,7 @@ export async function listDocuments(user: AuthUser | null, params: { year?: numb
 
 export async function generateDocument(user: AuthUser | null, templateId: string, roomNumber: string, year: number, month: number, force: boolean | undefined, actorId: string) {
   assertAuthenticated(user)
-  requireRole(user.role, ['ADMIN', 'MANAGER'])
+  requireRole(user.role, ['OWNER', 'ADMIN'])
   const tpl = await prisma.documentTemplate.findFirst({ where: { id: templateId } })
   if (!tpl?.content) throw new NotFoundError('template not found')
   const room = await prisma.room.findFirst({ where: { number: roomNumber } })
@@ -80,9 +87,24 @@ export async function generateDocument(user: AuthUser | null, templateId: string
         orderBy: { versionNo: 'desc' }
       })
       const totalAmount = activeVersion ? Number(activeVersion.totalAmount) : amount + adjustments
+      const billingVersionId = activeVersion?.id ?? null
+      const billingHash = activeVersion
+        ? hashBillingSnapshot(activeVersion.snapshotData, Number(activeVersion.totalAmount))
+        : hashBillingSnapshot(
+            {
+              roomNumber,
+              billingMonthId: bm.id,
+              rent: amount,
+              water: 0,
+              electric: 0,
+              other: 0
+            },
+            totalAmount
+          )
       const payloadForHash = JSON.stringify({
         roomNumber,
         billingMonthId: bm.id,
+        billingVersionId,
         totalAmount,
         versionNo: existingCount + 1,
         templateId
@@ -91,12 +113,19 @@ export async function generateDocument(user: AuthUser | null, templateId: string
       const version = await prisma.documentVersion.create({
         data: {
           templateId,
+          roomId: room.id,
           roomNumber,
           billingMonthId: bm.id,
+          billingVersionId,
           versionNo: existingCount + 1,
           status: DocumentStatus.DRAFT,
           file,
-          hash
+          hash,
+          snapshotJson: {
+            templateId,
+            billingVersionId,
+            billingHash
+          }
         }
       })
       await prisma.auditLog.create({
@@ -109,12 +138,10 @@ export async function generateDocument(user: AuthUser | null, templateId: string
       })
       return { id: version.id, versionNo: version.versionNo }
     } catch (err) {
-      if (typeof err === 'object' && err && 'code' in (err as any)) {
-        const code = (err as any).code
-        if (code === 'P2034' || code === 'P2002') {
-          lastError = err
-          continue
-        }
+      const code = getErrorCode(err)
+      if (code === 'P2034' || code === 'P2002') {
+        lastError = err
+        continue
       }
       throw err
     }
@@ -126,7 +153,7 @@ export async function generateDocument(user: AuthUser | null, templateId: string
 
 export async function sendDocument(user: AuthUser | null, documentVersionId: string, actorId: string) {
   assertAuthenticated(user)
-  requireRole(user.role, ['ADMIN', 'MANAGER', 'STAFF'])
+  requireRole(user.role, ['OWNER', 'ADMIN', 'STAFF'])
   const dv = await prisma.documentVersion.findFirst({ where: { id: documentVersionId } })
   if (!dv) throw new NotFoundError('not found')
   if (dv.status === DocumentStatus.SENT) throw new ConflictError('already_sent')
@@ -148,7 +175,7 @@ export async function sendDocument(user: AuthUser | null, documentVersionId: str
 
 export async function getDocumentFile(user: AuthUser | null, id: string) {
   assertAuthenticated(user)
-  requireRole(user.role, ['ADMIN', 'MANAGER', 'ACCOUNTANT', 'STAFF'])
+  requireRole(user.role, ['OWNER', 'ADMIN', 'STAFF'])
   const version = await prisma.documentVersion.findFirst({ where: { id } })
   return version?.file ? Buffer.from(version.file) : null
 }

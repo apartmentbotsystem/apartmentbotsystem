@@ -65,7 +65,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     </div>
                     <div className="hidden md:flex items-center gap-2">
                       <details className="relative">
-                        <summary className="chip cursor-pointer select-none">บริบท</summary>
+                        <summary className="chip cursor-pointer select-none">Filters</summary>
                         <div className="absolute right-0 mt-2 erp-card p-2 min-w-[420px] shadow-lg">
                           <TopContextForm
                             activeYear={year}

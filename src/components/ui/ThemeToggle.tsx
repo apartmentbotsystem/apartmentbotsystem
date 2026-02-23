@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 import { useTheme } from 'next-themes'
 import { useEffect, useState } from 'react'
 
@@ -11,11 +11,11 @@ export default function ThemeToggle() {
   return (
     <button
       type="button"
-      aria-label="สลับธีม"
+      aria-label="Toggle theme"
       className="text-sm px-2 py-1 border rounded erp-border"
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
     >
-      {isDark ? 'สว่าง' : 'มืด'}
+      {isDark ? 'Light' : 'Dark'}
     </button>
   )
 }

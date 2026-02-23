@@ -57,26 +57,40 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                 </nav>
               </aside>
               <main className="flex-1 min-w-0">
-                <header className="erp-topbar erp-card sticky top-0 flex items-center justify-between px-3 z-40">
-                  <div className="font-semibold text-sm">Apartment ERP</div>
-                  <div className="hidden md:flex items-center gap-2">
-                    <TopContextForm
-                      activeYear={year}
-                      activeMonth={month}
-                      activeBuildingId={activeBuildingId ?? ''}
-                      activeFloor={activeFloor}
-                      monthOptions={monthOptions}
-                      buildingOptions={contextOptions.buildingOptions}
-                      floorOptions={contextOptions.floorOptions}
-                      onSetContext={setActiveContext}
-                    />
-                    <GlobalCommandK />
-                    <Link href="/tickets" className="chip" aria-label="การแจ้งเตือน">
-                      แจ้งเตือน{openTickets > 0 ? ` (${openTickets})` : ''}
-                    </Link>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <ThemeToggle />
+                <header className="erp-topbar erp-card sticky top-0 z-40">
+                  <div className="flex items-center justify-between px-3 py-2 gap-2">
+                    <div className="flex items-center gap-3">
+                      <Link href="/" className="font-bold text-sm tracking-wide">Apartment ERP</Link>
+                      <span className="hidden md:inline text-xs opacity-70">{year}-{String(month).padStart(2, '0')}</span>
+                    </div>
+                    <div className="hidden md:flex items-center gap-2">
+                      <details className="relative">
+                        <summary className="chip cursor-pointer select-none">บริบท</summary>
+                        <div className="absolute right-0 mt-2 erp-card p-2 min-w-[420px] shadow-lg">
+                          <TopContextForm
+                            activeYear={year}
+                            activeMonth={month}
+                            activeBuildingId={activeBuildingId ?? ''}
+                            activeFloor={activeFloor}
+                            monthOptions={monthOptions}
+                            buildingOptions={contextOptions.buildingOptions}
+                            floorOptions={contextOptions.floorOptions}
+                            onSetContext={setActiveContext}
+                          />
+                        </div>
+                      </details>
+                      <GlobalCommandK />
+                      <Link href="/tickets" className="chip" aria-label="การแจ้งเตือน">
+                        แจ้งเตือน{openTickets > 0 ? ` (${openTickets})` : ''}
+                      </Link>
+                      <ThemeToggle />
+                    </div>
+                    <div className="md:hidden flex items-center gap-2">
+                      <Link href="/tickets" className="chip" aria-label="การแจ้งเตือน">
+                        แจ้งเตือน{openTickets > 0 ? ` (${openTickets})` : ''}
+                      </Link>
+                      <ThemeToggle />
+                    </div>
                   </div>
                 </header>
                 <div className="p-4 pt-5 pb-20 md:pb-4">

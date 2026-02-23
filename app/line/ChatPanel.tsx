@@ -34,19 +34,28 @@ export default function ChatPanel({
   }, [lastStamp])
 
   useEffect(() => {
+    let es: EventSource | null = null
     let cancelled = false
-    const poll = async () => {
-      try {
-        const res = await fetch(`/api/admin/conversations/${encodeURIComponent(conversationId)}/messages`)
-        if (!res.ok) return
-        const json = await res.json() as { items: Array<{ id: string; sender: 'ADMIN' | 'RESIDENT'; text: string; createdAt: string }> }
-        if (!cancelled) setMessages(json.items.map((m) => ({ ...m, createdAt: new Date(m.createdAt).toISOString() })))
-      } finally {
-        if (!cancelled) setTimeout(poll, 5000)
+    try {
+      es = new EventSource(`/api/admin/conversations/${encodeURIComponent(conversationId)}/stream`)
+      es.addEventListener('messages', (ev) => {
+        try {
+          const items = JSON.parse((ev as MessageEvent).data) as Array<{ id: string; sender: 'ADMIN' | 'RESIDENT'; text: string; createdAt: string }>
+          if (!cancelled && items.length) {
+            setMessages((prev) => [...prev, ...items])
+          }
+        } catch {}
+      })
+      es.onerror = () => {
+        if (es) es.close()
       }
+    } catch {
+      // fallback: do nothing here (page reload or manual refresh will recover)
     }
-    const t = setTimeout(poll, 5000)
-    return () => { cancelled = true; clearTimeout(t) }
+    return () => {
+      cancelled = true
+      if (es) es.close()
+    }
   }, [conversationId])
 
   return (
@@ -73,4 +82,3 @@ export default function ChatPanel({
     </div>
   )
 }
-

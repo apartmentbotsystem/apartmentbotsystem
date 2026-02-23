@@ -1,5 +1,6 @@
-﻿﻿import { prisma } from '@/lib/db'
+﻿import { prisma } from '@/lib/db'
 import Link from 'next/link'
+import * as AdminConversations from '@/services/adminConversations.service'
 import ChatPanel from '@/app/line/ChatPanel'
 import CreateTicketButton from './create-ticket-button'
 import { getActiveMonth } from '@/lib/context'
@@ -9,14 +10,7 @@ export default async function LinePage({ searchParams }: { searchParams: { id?: 
   const consumptionDate = new Date(year, month - 2, 1)
   const consumptionYm = `${consumptionDate.getFullYear()}-${String(consumptionDate.getMonth() + 1).padStart(2, '0')}`
 
-  const inbox = await prisma.conversation.findMany({
-    orderBy: { lastMessageAt: 'desc' },
-    include: {
-      messages: { orderBy: { createdAt: 'desc' }, take: 1, select: { text: true } },
-      room: true,
-      resident: true
-    }
-  })
+  const inbox = await AdminConversations.listInbox()
 
   const currentId = searchParams.id ?? inbox[0]?.id ?? ''
   const currentRaw = currentId
@@ -78,10 +72,10 @@ export default async function LinePage({ searchParams }: { searchParams: { id?: 
                 className={`block px-3 py-2 border-b erp-border text-sm hover:bg-[var(--bg-surface)] ${c.id === currentId ? 'bg-[var(--bg-surface)]' : ''}`}
               >
                 <div className="flex items-center justify-between">
-                  <div>{c.room?.number ?? c.resident?.fullName ?? c.lineUserId ?? '-'}</div>
+                  <div>{c.displayName}</div>
                   {c.unreadAdmin > 0 && <span className="chip">{c.unreadAdmin}</span>}
                 </div>
-                <div className="opacity-60 text-xs">{c.messages[0]?.text ?? ''}</div>
+                <div className="opacity-60 text-xs">{c.lastMessage ?? ''}</div>
               </Link>
             ))}
           </div>
@@ -136,4 +130,3 @@ export default async function LinePage({ searchParams }: { searchParams: { id?: 
     </div>
   )
 }
-

@@ -1,0 +1,73 @@
+{
+  "name": "apartment-erp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "start": "next start",
+    "typecheck": "prisma generate && tsc -p tsconfig.json --noEmit",
+    "scan:secrets": "git grep -n -I -e \"SECRET\\|TOKEN\\|KEY=\\|postgres://\\|supabase.co\" -- . || exit 0",
+    "billing:dry-run": "tsx scripts/billing-dry-run.ts",
+    "worker:outbox": "tsx scripts/outbox-worker.ts",
+    "stress:outbox": "STRESS_ROOMS=500 tsx scripts/stress-billing-outbox.ts",
+    "simulate:full": "tsx src/scripts/full-scale-simulation.ts",
+    "test:dynamic": "tsx src/scripts/dynamic-structure-tests.ts",
+    "test:e2e": "playwright test",
+    "test": "npm run test:unit && npm run test:integration && npm run test:services && npm run test:te && npm run test:delivery",
+    "test:unit": "tsx tests/penaltyEngine.test.ts",
+    "test:integration": "tsx tests/runPenaltyEngine.test.ts",
+    "test:services": "tsx tests/services.test.ts",
+    "test:te": "tsx tests/template-engine-phase-b.test.ts",
+    "test:docx": "tsx tests/docx.test.ts",
+    "test:delivery": "tsx tests/delivery-phase-c.test.ts",
+    "seed": "tsx prisma/seed.ts",
+    "db:backup": "tsx scripts/backup.ts",
+    "db:restore": "tsx scripts/restore.ts",
+    "production-check": "node scripts/production-check.cjs",
+    "postinstall": "prisma generate",
+    "prisma:studio": "prisma studio",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:generate": "prisma generate"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "engines": {
+    "node": "18.x"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "@supabase/ssr": "^0.8.0",
+    "ag-grid-community": "^35.1.0",
+    "ag-grid-react": "^35.1.0",
+    "docxtemplater": "^3.44.0",
+    "framer-motion": "^11.0.0",
+    "lucide-react": "^0.447.0",
+    "next": "^14.2.10",
+    "next-themes": "^0.4.6",
+    "node-cron": "^4.2.1",
+    "pizzip": "^3.1.7",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "recharts": "^2.12.7",
+    "xlsx": "^0.18.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@tailwindcss/postcss": "^4.2.0",
+    "@types/lodash": "^4.14.202",
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.3.28",
+    "@types/react-dom": "^18.3.7",
+    "autoprefixer": "^10.4.24",
+    "postcss": "^8.5.6",
+    "prisma": "^5.22.0",
+    "tailwindcss": "^4.2.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.6.3"
+  }
+}

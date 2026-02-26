@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+# Abort commit if staged additions include likely secrets
+# Scan only added lines in staged changes
+if git diff --cached -U0 | grep -E "^\+.*(SECRET|TOKEN|KEY=|postgres://|supabase\.co)" >/dev/null 2>&1; then
+  echo "ERROR: Potential secret detected in staged changes."
+  echo "Please remove secrets before committing."
+  exit 1
+fi
+exit 0

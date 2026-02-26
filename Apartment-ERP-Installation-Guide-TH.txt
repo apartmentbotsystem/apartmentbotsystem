@@ -1,0 +1,208 @@
+Apartment ERP — คู่มือติดตั้งและใช้งาน (ภาษาไทย)
+
+ชื่อไฟล์: Apartment-ERP-Installation-Guide-TH.txt
+
+บทนำ — ระบบนี้คืออะไร ใช้ทำอะไร
+1. Apartment ERP คือระบบบริหารอพาร์ตเมนต์/หอพักที่พัฒนาด้วย Next.js 14 และ Prisma โดยเชื่อมต่อกับฐานข้อมูล PostgreSQL
+2. ฟังก์ชันหลัก ได้แก่ จัดการบิล ค่าบริการ ค่าปรับ การชำระเงิน ห้อง ผู้เช่า ทิกเก็ตงานซ่อม และแชต (มี LINE Webhook สำหรับรับข้อความ)
+3. ระบบมีการยืนยันตัวตนและสิทธิ์การเข้าถึง (RBAC) เช่น Owner, Admin, Staff เพื่อจำกัดการเข้าถึงฟีเจอร์ตามบทบาท
+4. โครงสร้างฝั่งเซิร์ฟเวอร์ทำงานผ่าน API ภายใต้โฟลเดอร์ app/api/… ของ Next.js (App Router)
+
+สิ่งที่ต้องเตรียมก่อนติดตั้ง
+คำอธิบายสำหรับผู้ที่ไม่ถนัดด้านคอมพิวเตอร์
+1. Git คืออะไร: โปรแกรมช่วยดาวน์โหลดโค้ดจากอินเทอร์เน็ตและอัปเดตเวอร์ชันของโปรเจกต์ได้สะดวก เราจะใช้คำสั่ง git clone เพื่อคัดลอกโปรเจกต์ลงเครื่อง
+2. Node.js คืออะไร: โปรแกรมที่ใช้รันโค้ด JavaScript บนฝั่งเซิร์ฟเวอร์ จำเป็นสำหรับรัน Next.js และเครื่องมือพัฒนา
+3. npm คืออะไร: โปรแกรมจัดการแพ็กเกจ (library) ที่มาพร้อม Node.js ใช้คำสั่ง npm install เพื่อติดตั้ง dependency ต่างๆ
+4. PostgreSQL คืออะไร: ระบบฐานข้อมูล (Relational Database) ที่เก็บข้อมูลห้อง ผู้เช่า บิล ฯลฯ
+5. .env คืออะไร: ไฟล์เก็บ “ค่าลับ” และค่าตั้งค่าของระบบ เช่น รหัสเชื่อมต่อฐานข้อมูล โทเคนลับของ LINE ไฟล์นี้ต้องเก็บไว้ที่เครื่องเซิร์ฟเวอร์ ห้ามอัปโหลดขึ้น Git
+6. คำว่า Build คืออะไร: ขั้นตอนแปลงโค้ดให้พร้อมใช้งานในโหมด Production เพื่อให้ทำงานเร็วและเสถียรขึ้น
+7. คำว่า Migration คืออะไร: สคริปต์ที่ใช้ปรับโครงสร้างฐานข้อมูล (เช่น เพิ่มตาราง คอลัมน์) ให้ตรงกับโค้ดปัจจุบัน
+
+ความต้องการของระบบ (Requirements)
+1. Node.js เวอร์ชัน 18.18 ขึ้นไป (แนะนำใช้ LTS ล่าสุดในสาย 18.x หรือ 20.x)
+2. npm (ติดมากับ Node.js)
+3. PostgreSQL เวอร์ชัน 14 ขึ้นไป (เวอร์ชัน 11 ขึ้นไปใช้งานได้ แต่แนะนำรุ่นใหม่เพื่อความเสถียร)
+4. Git CLI สำหรับดาวน์โหลดซอร์สโค้ด
+
+วิธีติดตั้งในเครื่องตัวเอง (Local)
+1) ดาวน์โหลดโปรเจกต์
+   คำสั่ง:
+   git clone <repo>
+   cd <project-directory>
+
+2) ติดตั้งแพ็กเกจที่จำเป็น
+   คำสั่ง:
+   npm install
+
+3) สร้างไฟล์ .env ที่โฟลเดอร์โปรเจกต์ (ชั้นบนสุด)
+   ใส่ค่าตัวแปรดังนี้:
+   DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/DBNAME?schema=public"
+   AUTH_SECRET="ใส่สตริงสุ่มที่ยาวและคาดเดายาก"
+   NEXTAUTH_URL="http://localhost:3000"
+   LINE_CHANNEL_SECRET="ใส่ค่า LINE Channel Secret"
+   LINE_CHANNEL_ACCESS_TOKEN="ใส่ค่า LINE Channel Access Token"
+   (ตัวเลือก) TZ="Asia/Bangkok"
+   (ตัวเลือก) PUBLIC_BASE_URL="http://localhost:3000"
+   หมายเหตุ:
+   - DATABASE_URL คือค่าการเชื่อมต่อ PostgreSQL
+   - AUTH_SECRET ใช้เข้ารหัสเซสชัน (อาจใช้ NEXTAUTH_SECRET แทนได้)
+   - NEXTAUTH_URL คือ URL พื้นฐานของระบบในโหมดพัฒนา
+   - ตัวแปร LINE_* จำเป็นต่อการใช้งาน Webhook กับ LINE
+
+4) เตรียมฐานข้อมูล
+   เลือก 1 แนวทาง (แนะนำข้อ ก):
+   ก) ใช้ migrations (แนะนำสำหรับทีม):
+      คำสั่ง:
+      npx prisma migrate dev
+      อธิบาย: ใช้ไฟล์ migration ที่อยู่ในโปรเจกต์เพื่อปรับโครงสร้างฐานข้อมูลให้ตรงกับโค้ดปัจจุบัน
+   ข) ใช้ db push (ทดสอบเฉพาะเครื่องพัฒนา):
+      คำสั่ง:
+      npx prisma db push
+      อธิบาย: ดัน schema ปัจจุบันขึ้นฐานข้อมูลโดยไม่สร้างไฟล์ migration (ไม่แนะนำใช้ในทีมและ Production)
+
+5) สร้าง Prisma Client
+   คำสั่ง:
+   npx prisma generate
+
+6) รันเซิร์ฟเวอร์โหมดพัฒนา
+   คำสั่ง:
+   npm run dev
+   เข้าผ่านเบราว์เซอร์ที่:
+   http://localhost:3000
+
+วิธีใช้งานพื้นฐานหลังติดตั้ง
+1. เปิดเบราว์เซอร์ที่ http://localhost:3000
+2. เข้าสู่ระบบ (หากมีสคริปต์ seed ให้รันเพื่อสร้างข้อมูลเริ่มต้น เช่น ผู้ใช้ตัวอย่าง):
+   คำสั่ง (ถ้ามีสคริปต์):
+   npm run seed
+   หมายเหตุ: ขั้นตอนสร้างผู้ใช้หลัก (Admin) อาจขึ้นกับนโยบายทีม หากไม่มีสคริปต์ seed กรุณาใช้กระบวนการสร้างผู้ใช้ที่ทีมกำหนด
+3. ตรวจสอบเมนูหลัก เช่น บิล ห้อง ผู้เช่า แชต ทิกเก็ต เพื่อยืนยันว่าหน้าต่างๆ โหลดได้ปกติ
+
+วิธีเตรียมระบบขึ้น Production (ออนไลน์จริง)
+1) ตั้งค่า Environment Variables บนเครื่องเซิร์ฟเวอร์
+   จำเป็น:
+   NODE_ENV=production
+   PORT=3000
+   DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DBNAME?schema=public"
+   AUTH_SECRET="สตริงสุ่มที่แข็งแรง"
+   NEXTAUTH_URL="https://yourdomain.com"
+   LINE_CHANNEL_SECRET="ค่า LINE Channel Secret จาก LINE Developer Console"
+   LINE_CHANNEL_ACCESS_TOKEN="ค่า LINE Channel Access Token"
+   ตัวเลือก:
+   TZ="Asia/Bangkok"
+   PUBLIC_BASE_URL="https://yourdomain.com"
+   อธิบาย:
+   - NODE_ENV: บอกระบบว่าเป็นโหมด production เพื่อใช้การตั้งค่าที่เหมาะสม
+   - PORT: พอร์ตที่เซิร์ฟเวอร์เปิดใช้งาน (เช่น 3000)
+   - AUTH_SECRET: ต้องเป็นค่าแบบสุ่มและยาว เพื่อความปลอดภัยของเซสชัน
+   - NEXTAUTH_URL: URL จริงของระบบ (โดเมนแบบ HTTPS)
+
+   วิธีสร้าง AUTH_SECRET ที่ปลอดภัย:
+   macOS/Linux:
+   openssl rand -base64 48 | tr -d '\n'
+   หรือด้วย Node:
+   node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"
+
+2) Build โหมด Production
+   คำสั่ง:
+   npm run build
+
+3) เริ่มเซิร์ฟเวอร์ Production
+   คำสั่ง:
+   npm start
+   แนะนำให้ใช้ process manager (เช่น systemd หรือ PM2) เพื่อให้เซิร์ฟเวอร์รันต่อเนื่องอัตโนมัติ
+
+4) ตั้งค่า Reverse Proxy (ทางเลือก แนะนำ)
+   ใช้ Nginx สำหรับ HTTPS และ proxy ไปยังพอร์ตแอป:
+   ตัวอย่าง (ย่อ):
+   - โดเมน yourdomain.com ต้องชี้มายัง IP เครื่องเซิร์ฟเวอร์แล้ว
+   - ติดตั้งใบรับรอง SSL (เช่น Let’s Encrypt)
+   - กำหนด proxy_pass ไป http://127.0.0.1:3000
+
+5) Migration ใน Production
+   คำสั่ง:
+   npx prisma migrate deploy
+   เหตุผล: ใช้ไฟล์ migration ที่ commit แล้วเท่านั้น ไม่ใช้ npx prisma migrate dev ใน Production เพื่อป้องกันการเปลี่ยนแปลงโดยไม่ได้ตั้งใจ
+
+หมายเหตุความเข้ากันได้ของ Prisma Binary (สำคัญเมื่อใช้ Linux Alpine)
+1. หากคุณ deploy บน Linux ที่เป็น Alpine (ใช้ musl) อาจพบปัญหา Prisma crash เพราะ binary ไม่ตรงกับระบบ
+2. วิธีแก้: ระบุ binaryTargets ในไฟล์ prisma/schema.prisma เพื่อให้ Prisma สร้างไบนารีที่รองรับ
+   ตัวอย่างแนวทาง (ส่วน generator):
+   generator client {
+     provider      = "prisma-client-js"
+     binaryTargets = ["native", "linux-musl"]
+   }
+3. จากนั้นรัน:
+   npx prisma generate
+4. เป้าหมายคือให้ Prisma ใช้ไบนารีที่เข้ากับสภาพแวดล้อม Production ป้องกันการ crash ตอนสตาร์ตระบบ
+
+วิธีตั้งค่า LINE Webhook
+1) สร้าง LINE Messaging API Channel
+   - เข้า LINE Developer Console และสร้าง Channel ประเภท Messaging
+   - จดบันทึก Channel Secret และ Channel Access Token
+
+2) ตั้งค่า Webhook URL
+   - ใส่ URL: https://yourdomain.com/api/line/webhook
+   - เปิดใช้งาน Use webhook
+   - ปิด Auto-reply หากต้องการให้ระบบเป็นผู้ตอบกลับทั้งหมด
+
+3) ทดสอบ
+   - ใช้ปุ่ม Verify ใน LINE Console เพื่อตรวจสอบว่า endpoint ตอบกลับถูกต้อง
+   - ส่งข้อความทดสอบจากบัญชีที่ผูกไว้ ตรวจสอบว่าเข้ามาในระบบ
+
+คำแนะนำด้านความปลอดภัยของ Webhook
+1. เปิด Signature Verification: ตรวจลายเซ็นจาก LINE เพื่อป้องกันคำขอปลอม
+2. ทำ Rate Limiting: จำกัดจำนวนคำขอเพื่อป้องกันการโจมตีแบบส่งคำขอจำนวนมาก
+3. อย่าเปิด endpoint สาธารณะโดยไม่มีการตรวจสอบ: ต้องตรวจสอบสิทธิ์และเงื่อนไขที่เหมาะสมสำหรับ API อื่นๆ เสมอ
+
+ความปลอดภัยที่ต้องรู้
+1. ไฟล์ .env ห้ามอัปโหลดขึ้น Git เด็ดขาด เก็บเฉพาะบนเครื่องรันจริง
+2. หมุนเวียน (rotate) ความลับ เช่น AUTH_SECRET และ LINE Token หากหลุดรั่วหรือมีสมาชิกทีมเปลี่ยน
+3. เปิดใช้ HTTPS บน Production เสมอ
+4. จำกัดสิทธิ์การเข้าถึง (RBAC) ในหน้าผู้ดูแลระบบ
+5. จำกัดการเข้าถึงฐานข้อมูลด้วย Firewall/IP allowlist และใช้บัญชีที่มีสิทธิ์น้อยที่สุด
+6. มีระบบสำรองข้อมูลฐานข้อมูลอย่างสม่ำเสมอ และทดสอบการกู้คืน
+
+วิธีแก้ปัญหาที่พบบ่อย
+1) Prisma Migration ล้มเหลว
+   - ตรวจว่า DATABASE_URL เชื่อมต่อได้จริง (โฮสต์/พอร์ต/รหัสผ่านถูกต้อง)
+   - ตรวจสิทธิ์ผู้ใช้ฐานข้อมูลว่ามีสิทธิ์ ALTER TABLE/CREATE TABLE
+   - ใช้คำสั่ง:
+     npx prisma migrate status
+2) ฟอร์แมต DATABASE_URL ไม่ถูกต้อง
+   - รูปแบบตัวอย่าง:
+     postgresql://USER:PASSWORD@HOST:PORT/DBNAME?schema=public
+   - หากผู้ให้บริการต้องการ SSL ให้เพิ่มพารามิเตอร์เช่น sslmode=require
+3) เรียก API แล้วได้ 401/403
+   - ตรวจว่า AUTH_SECRET/NEXTAUTH_SECRET ตั้งค่าแล้ว
+   - ตรวจว่าเบราว์เซอร์ส่งคุกกี้ได้ (โปรโตคอล HTTPS และโดเมนสอดคล้อง)
+   - ตรวจบทบาทผู้ใช้ว่ามีสิทธิ์เข้าถึงหน้าดังกล่าว
+4) LINE Webhook ไม่ได้รับอีเวนต์
+   - ตรวจว่าเปิด Use webhook แล้ว และ URL เป็น HTTPS สาธารณะ
+   - ตรวจว่า LINE_CHANNEL_SECRET และ LINE_CHANNEL_ACCESS_TOKEN ตั้งค่าถูกต้อง
+   - ตรวจลอกรหัสตอบกลับและเซิร์ฟเวอร์ว่ามีการปฏิเสธลายเซ็นหรือ rate limit หรือไม่
+5) Build ล้มเหลวเพราะตัวแปรแวดล้อมหาย
+   - ตรวจว่า environments ทั้งหมดตั้งค่าครบ (DATABASE_URL, AUTH_SECRET/NEXTAUTH_SECRET, NEXTAUTH_URL, LINE_*)
+   - รัน:
+     npm run build
+6) Prisma crash บน Alpine Linux
+   - เพิ่ม binaryTargets = ["native", "linux-musl"] ใน schema.prisma แล้วรัน npx prisma generate
+
+Checklist ก่อนเปิดใช้งานจริง
+1. Build ผ่าน: npm run build สำเร็จ
+2. เซิร์ฟเวอร์เริ่มได้: npm start ทำงานร่วมกับ process manager แล้ว
+3. ตัวแปรแวดล้อม:
+   - DATABASE_URL ถูกต้องและเชื่อมต่อได้
+   - AUTH_SECRET/NEXTAUTH_SECRET ถูกตั้งค่าและยาวพอ
+   - NEXTAUTH_URL เป็นโดเมน HTTPS จริง
+   - LINE_CHANNEL_SECRET และ LINE_CHANNEL_ACCESS_TOKEN ถูกต้อง
+   - NODE_ENV=production และ PORT=3000 (หรือค่าพอร์ตที่ต้องการ)
+4. Migration เรียบร้อย: npx prisma migrate deploy สำเร็จ
+5. HTTPS เปิดใช้งาน และใบรับรองถูกต้อง
+6. Health/Logs: มีการตรวจสอบสถานะและดูบันทึกข้อผิดพลาดได้
+7. RBAC ตรวจแล้ว: Owner/Admin/Staff เข้าถึงได้ตามสิทธิ์
+8. Webhook LINE: Verify ผ่าน ส่งข้อความทดสอบแล้วรับได้
+9. สำรองข้อมูลฐานข้อมูล: ตั้งค่า Backup และทดสอบกู้คืนแล้ว
+10. ความปลอดภัย Webhook: เปิด Signature Verification และ Rate Limiting
+
+จบเอกสารคู่มือ Apartment ERP (ภาษาไทย)
